@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>YMK Catering - 81 İl Operasyon Paneli</title>
+    <title>YMK Catering - Operasyon Paneli</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
@@ -31,14 +31,13 @@
         .sehir-listesi { max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 10px; margin-top: 10px; }
         .sehir-item { font-size: 13px; padding: 8px; cursor: pointer; border-bottom: 1px solid #f8fafc; display: flex; justify-content: space-between; }
         .sehir-item:hover { background: #f1f5f9; color: #2563eb; }
-        .aktif-sehir { color: #2563eb; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
         <h1>YMK Catering</h1>
-        <span class="subtitle">81 İl Otomatik Entegrasyon 🟢</span>
+        <span class="subtitle">Canlı Veri Entegrasyonu 🟢</span>
 
         <button id="backBtn" onclick="turkiyeModunaDon()">← Türkiye Haritasına Dön</button>
 
@@ -87,16 +86,14 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         // ============================================================
-        // SENİN GOOGLE SHEET LINKIN:
-        const GOOGLE_SHEET_LINKI = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRJk198uV3N1W3fYMRVyAOFZtFZ-YW2GL6jUKJvJPyr5Y6LuRCSx45sLnzbYh5g3VNgbQZvjHOEp8sO/pub?output=csv';
+        // SENİN VERDİĞİN LİNKTEN DÖNÜŞTÜRÜLEN OTOMATİK BAĞLANTI:
+        const GOOGLE_SHEET_LINKI = 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv';
         // ============================================================
 
-        // 81 İL İÇİN PLAKA KODLARI (Otomatik Harita Bulmak İçin)
         const PLAKA_KODLARI = {
             'adana': 1, 'adiyaman': 2, 'afyonkarahisar': 3, 'agri': 4, 'amasya': 5, 'ankara': 6, 'antalya': 7, 'artvin': 8, 'aydin': 9, 'balikesir': 10, 'bilecik': 11, 'bingol': 12, 'bitlis': 13, 'bolu': 14, 'burdur': 15, 'bursa': 16, 'canakkale': 17, 'cankiri': 18, 'corum': 19, 'denizli': 20, 'diyarbakir': 21, 'edirne': 22, 'elazig': 23, 'erzincan': 24, 'erzurum': 25, 'eskisehir': 26, 'gaziantep': 27, 'giresun': 28, 'gumushane': 29, 'hakkari': 30, 'hatay': 31, 'isparta': 32, 'mersin': 33, 'istanbul': 34, 'izmir': 35, 'kars': 36, 'kastamonu': 37, 'kayseri': 38, 'kirklareli': 39, 'kirsehir': 40, 'kocaeli': 41, 'konya': 42, 'kutahya': 43, 'malatya': 44, 'manisa': 45, 'kahramanmaras': 46, 'mardin': 47, 'mugla': 48, 'mus': 49, 'nevsehir': 50, 'nigde': 51, 'ordu': 52, 'rize': 53, 'sakarya': 54, 'samsun': 55, 'siirt': 56, 'sinop': 57, 'sivas': 58, 'tekirdag': 59, 'tokat': 60, 'trabzon': 61, 'tunceli': 62, 'sanliurfa': 63, 'usak': 64, 'van': 65, 'yozgat': 66, 'zonguldak': 67, 'aksaray': 68, 'bayburt': 69, 'karaman': 70, 'kirikkale': 71, 'batman': 72, 'sirnak': 73, 'bartin': 74, 'ardahan': 75, 'igdir': 76, 'yalova': 77, 'karabuk': 78, 'kilis': 79, 'osmaniye': 80, 'duzce': 81
         };
 
-        // Harita Başlangıcı
         var map = L.map('map', { zoomControl: false }).setView([39.0, 35.5], 6);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: 'YMK Catering' }).addTo(map);
@@ -104,10 +101,9 @@
         let activeLayer = L.layerGroup().addTo(map);
         let tumVeriler = []; 
         let mevcutFirmalar = new Set();
-        let aktifSehirlerSet = new Set(); // Excel'de verisi olan şehirler
-        let sehirPoligonlari = L.layerGroup(); // Türkiye haritasındaki kutucuklar
+        let aktifSehirlerSet = new Set(); 
 
-        // 1. GOOGLE SHEETS VERİLERİNİ ÇEK
+        // 1. VERİLERİ ÇEK
         function verileriYukle() {
             Papa.parse(GOOGLE_SHEET_LINKI, {
                 download: true,
@@ -115,15 +111,12 @@
                 skipEmptyLines: true,
                 complete: function(results) {
                     tumVeriler = results.data;
-                    console.log("Excel Verileri:", tumVeriler);
                     
-                    // Verileri Analiz Et
                     tumVeriler.forEach(satir => {
                         if(satir.Firma) mevcutFirmalar.add(satir.Firma);
                         if(satir.Sehir) aktifSehirlerSet.add(temizle(satir.Sehir));
                     });
                     
-                    // Firma Listesini Doldur
                     const select = document.getElementById('firmaSecimi');
                     select.innerHTML = '<option value="genel">🌍 Genel Görünüm</option>';
                     mevcutFirmalar.forEach(firma => {
@@ -133,42 +126,31 @@
                         select.appendChild(opt);
                     });
 
-                    // Sol Menüdeki Şehir Listesini Doldur
                     listeyiGuncelle();
-
-                    // Türkiye Haritasını (Büyük Poligonları) Çek ve Çiz
                     turkiyePoligonlariniYukle();
                 },
                 error: function(err) {
-                    alert("Veritabanına bağlanılamadı. Linki kontrol edin.");
+                    alert("Excel bağlantı hatası! Dosyanın 'Paylaş' ayarlarından 'Bağlantıya sahip herkes görebilir' seçili olduğundan emin ol.");
                 }
             });
         }
 
-        // 2. TÜRKİYE İL SINIRLARINI YÜKLE (Giriş Ekranı)
+        // 2. TÜRKİYE HARİTASI
         function turkiyePoligonlariniYukle() {
-            document.getElementById('loading').innerText = "Türkiye Haritası Çiziliyor...";
-            // Türkiye illeri (basitleştirilmiş)
+            document.getElementById('loading').innerText = "Harita Yükleniyor...";
             fetch('https://raw.githubusercontent.com/alper/turkey-maps-geojson/master/tr-cities-utf8.json')
                 .then(res => res.json())
                 .then(data => {
                     document.getElementById('loading').style.display = 'none';
                     turkiyeModunuCiz(data);
-                })
-                .catch(err => {
-                    console.error("Türkiye haritası yüklenemedi", err);
-                    document.getElementById('loading').innerText = "Harita Hatası!";
                 });
         }
 
         function turkiyeModunuCiz(geoData) {
             activeLayer.clearLayers();
-            sehirPoligonlari.clearLayers();
-            
             L.geoJson(geoData, {
                 style: function(feature) {
                     const sehirAdi = temizle(feature.properties.name);
-                    // Eğer Excel'de bu şehir varsa MAVİ, yoksa GRİ yap
                     if (aktifSehirlerSet.has(sehirAdi)) {
                         return { fillColor: '#3b82f6', color: 'white', weight: 1, fillOpacity: 0.6 };
                     } else {
@@ -180,91 +162,62 @@
                     const temizAd = temizle(sehirAdi);
                     
                     let tooltipText = `<b>${sehirAdi}</b>`;
-                    if(aktifSehirlerSet.has(temizAd)) {
-                        tooltipText += "<br>✅ Operasyon Var (Tıkla)";
-                    } else {
-                        tooltipText += "<br>❌ Veri Yok";
-                    }
+                    if(aktifSehirlerSet.has(temizAd)) tooltipText += "<br>✅ Veri Var (Tıkla)";
 
                     layer.bindTooltip(tooltipText, { direction: 'center' });
-
-                    layer.on('click', () => {
-                        detayHaritasiniYukle(sehirAdi);
-                    });
-                    
-                    layer.on('mouseover', function(e) {
-                        e.target.setStyle({ weight: 2, color: '#333', fillOpacity: 0.8 });
-                    });
-                    layer.on('mouseout', function(e) {
-                        activeLayer.resetStyle(e.target);
-                    });
+                    layer.on('click', () => detayHaritasiniYukle(sehirAdi));
+                    layer.on('mouseover', function(e) { e.target.setStyle({ weight: 2, color: '#333', fillOpacity: 0.8 }); });
+                    layer.on('mouseout', function(e) { activeLayer.resetStyle(e.target); });
                 }
             }).addTo(activeLayer);
             
-            // UI Güncelle
             document.getElementById('city-controls').classList.add('hidden');
             document.getElementById('backBtn').style.display = 'none';
             document.getElementById('turkiye-info').classList.remove('hidden');
             map.setView([39.0, 35.5], 6);
         }
 
-        // 3. ŞEHİR DETAY MODU (Otomatik GeoJSON Bulucu)
+        // 3. DETAY HARİTASI
         function detayHaritasiniYukle(sehirAdi) {
             const temizAd = temizle(sehirAdi);
             const plaka = PLAKA_KODLARI[temizAd];
 
-            if (!plaka) {
-                alert("Bu şehrin harita kodu bulunamadı!");
-                return;
-            }
+            if (!plaka) { alert("Harita bulunamadı!"); return; }
 
-            // UI Hazırlığı
             document.getElementById('loading').style.display = 'block';
-            document.getElementById('loading').innerText = sehirAdi + " İlçeleri Yükleniyor...";
+            document.getElementById('loading').innerText = sehirAdi + " Yükleniyor...";
             document.getElementById('turkiye-info').classList.add('hidden');
             document.getElementById('city-controls').classList.remove('hidden');
             document.getElementById('backBtn').style.display = 'block';
-            document.getElementById('aktif-sehir-baslik').innerText = sehirAdi + " Operasyonu";
+            document.getElementById('aktif-sehir-baslik').innerText = sehirAdi;
 
-            // 🔥 SİHİR BURADA: Plakaya göre haritayı internetten buluyoruz
-            // GitHub'daki "turkey-geojson" reposunu kullanıyoruz. 6.json = Ankara, 34.json = İstanbul
-            const geoJsonUrl = `https://raw.githubusercontent.com/cihadturhan/tr-geojson/master/geo/json/city/${plaka}.json`;
-
-            fetch(geoJsonUrl)
-                .then(res => {
-                    if (!res.ok) throw new Error("Dosya bulunamadı");
-                    return res.json();
-                })
+            fetch(`https://raw.githubusercontent.com/cihadturhan/tr-geojson/master/geo/json/city/${plaka}.json`)
+                .then(res => res.json())
                 .then(data => {
                     document.getElementById('loading').style.display = 'none';
                     ilceHaritasiniCiz(data, temizAd);
                 })
-                .catch(err => {
-                    console.error(err);
-                    alert(sehirAdi + " haritası şu an sunucudan çekilemedi. Lütfen daha sonra deneyin.");
+                .catch(() => {
+                    alert("Harita verisi çekilemedi.");
                     turkiyeModunaDon();
                 });
         }
 
         function ilceHaritasiniCiz(geoData, aktifSehirKod) {
             activeLayer.clearLayers();
-
-            // Harita sınırlarını ayarla (Zoom yap)
             const tempLayer = L.geoJson(geoData);
             map.fitBounds(tempLayer.getBounds());
 
             L.geoJson(geoData, {
                 style: function(feature) {
-                    const ilce = feature.properties.name || feature.properties.ILCE; // GeoJSON yapısına göre değişebilir
+                    const ilce = feature.properties.name || feature.properties.ILCE;
                     const firmalar = getBolgeDurumu(aktifSehirKod, ilce);
-
                     if (firmalar.length === 0) return { fillColor: '#e2e8f0', color: 'white', weight: 1, fillOpacity: 0.5 };
 
                     const enIyisi = firmalar[0].limit;
                     let renk = '#ef4444'; 
                     if(enIyisi <= 15) renk = '#22c55e';
                     else if(enIyisi <= 50) renk = '#f59e0b';
-
                     return { fillColor: renk, color: 'white', weight: 1, fillOpacity: 0.7 };
                 },
                 onEachFeature: function(feature, layer) {
@@ -278,43 +231,35 @@
                         firmalar.forEach(f => {
                             let bg = f.limit <= 15 ? '#dcfce7' : (f.limit <= 50 ? '#fef3c7' : '#fee2e2');
                             let color = f.limit <= 15 ? '#166534' : (f.limit <= 50 ? '#92400e' : '#991b1b');
-                            
                             html += `<div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
                                 <span>${f.isim}</span>
                                 <span style="background:${bg}; color:${color}; padding:2px 6px; border-radius:4px; font-weight:bold;">Min ${f.limit}</span>
                             </div>`;
                         });
                     } else {
-                        html += "<span style='color:#94a3b8; font-size:12px;'>Kayıtlı Firma Yok</span>";
+                        html += "<span style='color:#94a3b8; font-size:12px;'>Firma Yok</span>";
                     }
                     html += "</div>";
-                    
                     layer.bindPopup(html);
                 }
             }).addTo(activeLayer);
         }
 
-        // 4. VERİ ANALİZİ
         function getBolgeDurumu(sehirKod, ilceAdi) {
             const filtre = document.getElementById('firmaSecimi').value;
             let firmalar = [];
 
             tumVeriler.forEach(satir => {
-                // Şehir ve İlçe kontrolü (Türkçe karakter duyarsız)
                 if (temizle(satir.Sehir) === sehirKod && temizle(satir.Ilce) === temizle(ilceAdi)) {
                     if (filtre === 'genel' || filtre === satir.Firma) {
-                        if (satir.Limit) {
-                            firmalar.push({ isim: satir.Firma, limit: parseInt(satir.Limit) });
-                        }
+                        if (satir.Limit) firmalar.push({ isim: satir.Firma, limit: parseInt(satir.Limit) });
                     }
                 }
             });
-
             firmalar.sort((a,b) => a.limit - b.limit);
             return firmalar;
         }
 
-        // Yardımcı Fonksiyonlar
         function temizle(txt) {
             if(!txt) return "";
             return txt.toLocaleLowerCase('tr-TR').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c').trim();
@@ -322,18 +267,10 @@
 
         function listeyiGuncelle() {
             const listeDiv = document.getElementById('aktif-sehirler-listesi');
-            document.getElementById('toplam-sehir-sayisi').innerText = `📊 Toplam ${aktifSehirlerSet.size} Şehirde Veri Var`;
-            
+            document.getElementById('toplam-sehir-sayisi').innerText = `📊 ${aktifSehirlerSet.size} Şehirde Veri Var`;
             listeDiv.innerHTML = "";
-            if(aktifSehirlerSet.size === 0) {
-                listeDiv.innerHTML = "<div style='padding:10px; color:#999; font-size:12px;'>Excel dosyanızda henüz veri yok.</div>";
-                return;
-            }
-
             Array.from(aktifSehirlerSet).sort().forEach(sehir => {
-                // Baş harfi büyüt
                 const gorunenAd = sehir.charAt(0).toUpperCase() + sehir.slice(1);
-                
                 const item = document.createElement('div');
                 item.className = 'sehir-item';
                 item.innerHTML = `<span>${gorunenAd}</span> <span>➜</span>`;
@@ -342,19 +279,12 @@
             });
         }
 
-        function turkiyeModunaDon() {
-            // Sayfayı yenilemeden haritayı resetlemek için en temizi
-            // Türkiye poligonlarını tekrar yüklemektir, veriler zaten hafızada
-            turkiyePoligonlariniYukle();
-        }
-
+        function turkiyeModunaDon() { turkiyePoligonlariniYukle(); }
         document.getElementById('firmaSecimi').addEventListener('change', () => {
-            // Hangi şehirde olduğumuzu başlıktan anlıyoruz (Basit hack)
-            const baslik = document.getElementById('aktif-sehir-baslik').innerText.split(' ')[0];
+            const baslik = document.getElementById('aktif-sehir-baslik').innerText;
             detayHaritasiniYukle(baslik);
         });
 
-        // BAŞLAT
         verileriYukle();
 
     </script>
