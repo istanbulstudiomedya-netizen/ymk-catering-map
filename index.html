@@ -2,330 +2,110 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YMK Catering - İnteraktif Harita</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <title>YMK Catering - Operasyon Paneli</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; height: 100vh; overflow: hidden; }
+        #sidebar { width: 340px; background: #fff; border-right: 1px solid #e2e8f0; padding: 20px; display: flex; flex-direction: column; z-index: 20; box-shadow: 4px 0 15px rgba(0,0,0,0.05); }
+        #map-container { flex-grow: 1; position: relative; }
+        #map { width: 100%; height: 100%; background: #f1f5f9; }
         
-        #sidebar {
-            width: 340px;
-            background: #ffffff;
-            border-right: 2px solid #e0e0e0;
-            padding: 20px;
-            overflow-y: auto;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-        }
+        h1 { font-size: 20px; color: #0f172a; margin: 0; font-weight: 800; }
+        .subtitle { font-size: 12px; color: #64748b; margin-bottom: 20px; display:block; }
         
-        h1 { font-size: 26px; color: #1e293b; margin-bottom: 5px; }
-        .subtitle { color: #16a34a; font-weight: 600; font-size: 13px; margin-bottom: 25px; display: block; }
+        select { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 15px; cursor: pointer; font-family: 'Inter'; }
         
-        #map { flex: 1; background: #e8f4f8; }
+        .legend-box { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .legend-item { display: flex; align-items: center; font-size: 12px; margin-bottom: 6px; color: #475569; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
         
-        .city-item {
-            padding: 14px 18px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            margin: 8px 0;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 15px;
-            color: #334155;
-            transition: all 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        #loading { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:20px 40px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.2); text-align:center; z-index:1000; border: 1px solid #e2e8f0; min-width: 300px; }
+        #loading-text { font-weight:600; color:#2563eb; font-size: 16px; margin-bottom: 10px; }
+        #debug-log { font-size: 11px; color: #64748b; font-family: monospace; text-align: left; background: #f1f5f9; padding: 10px; border-radius: 6px; margin-top: 10px; display: none; }
         
-        .city-item:hover {
-            background: #dbeafe;
-            transform: translateX(5px);
-            color: #1e40af;
-        }
-        
-        .city-item::after {
-            content: '→';
-            font-size: 18px;
-        }
-        
-        .back-btn {
-            width: 100%;
-            padding: 12px;
-            background: #1e40af;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 20px;
-            transition: 0.2s;
-        }
-        
-        .back-btn:hover {
-            background: #1e3a8a;
-        }
+        #backBtn { background:#f1f5f9; border:1px solid #e2e8f0; padding:12px; border-radius:8px; cursor:pointer; width:100%; margin-bottom:15px; display:none; font-weight: 600; color: #334155; transition: 0.2s; }
+        #backBtn:hover { background: #e2e8f0; color: #0f172a; }
         
         .hidden { display: none !important; }
-        
-        .status-box {
-            background: #f0f9ff;
-            border: 1px solid #bae6fd;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 20px;
-            font-size: 13px;
-        }
-        
-        .status-box strong {
-            color: #0369a1;
-        }
-        
-        .legend {
-            margin-top: 25px;
-            padding: 15px;
-            background: #f8fafc;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-        }
-        
-        .legend-title {
-            font-weight: 700;
-            font-size: 13px;
-            color: #0f172a;
-            margin-bottom: 12px;
-            display: block;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin: 8px 0;
-            font-size: 13px;
-        }
-        
-        .legend-color {
-            width: 30px;
-            height: 20px;
-            border-radius: 4px;
-            margin-right: 10px;
-            border: 1px solid rgba(0,0,0,0.1);
-        }
+        .sehir-listesi { max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 10px; margin-top: 10px; }
+        .sehir-item { font-size: 13px; padding: 8px; cursor: pointer; border-bottom: 1px solid #f8fafc; display: flex; justify-content: space-between; }
+        .sehir-item:hover { background: #f1f5f9; color: #2563eb; }
     </style>
 </head>
 <body>
 
-<div id="sidebar">
-    <h1>YMK Catering</h1>
-    <span class="subtitle">İnteraktif Operasyon Haritası</span>
-    
-    <button id="backBtn" class="back-btn hidden">← Türkiye Geneline Dön</button>
-    
-    <div class="status-box">
-        <div>Veri Kaynağı: <strong>Canlı (Google Sheets)</strong></div>
-        <div id="dataStatus">Yükleniyor...</div>
+    <div id="sidebar">
+        <h1>YMK Catering</h1>
+        <span class="subtitle">Yerel Veri Modu (V2) 🟢</span>
+
+        <button id="backBtn" onclick="turkiyeModunaDon()">← Türkiye Haritasına Dön</button>
+
+        <div id="city-controls" class="hidden">
+            <h2 id="aktif-sehir-baslik" style="font-size:16px; margin:0 0 10px 0; color:#0f172a;">Şehir Detayı</h2>
+            <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:5px;">FİRMA SEÇİMİ</label>
+            <select id="firmaSecimi"><option value="genel">🌍 Genel Görünüm</option></select>
+            <div class="legend-box">
+                <span style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 8px; display: block; text-transform: uppercase;">MİN. SİPARİŞ LİMİTLERİ</span>
+                <div class="legend-item"><div class="dot" style="background:#22c55e"></div> 0 - 15 Kişi (Esnek)</div>
+                <div class="legend-item"><div class="dot" style="background:#f59e0b"></div> 16 - 50 Kişi (Standart)</div>
+                <div class="legend-item"><div class="dot" style="background:#ef4444"></div> 51+ Kişi (Toplu)</div>
+                <div class="legend-item"><div class="dot" style="background:#e2e8f0"></div> Hizmet Yok</div>
+            </div>
+        </div>
+        
+        <div id="turkiye-info">
+            <div class="legend-box">
+                <span style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 8px; display: block; text-transform: uppercase;">SİSTEM DURUMU</span>
+                <div style="font-size: 13px; color: #334155;">
+                    <div style="margin-bottom:5px">📊 Excel: <strong>Bağlı</strong></div>
+                    <div style="margin-bottom:5px">📍 İstanbul: <strong>Yerel Dosya</strong></div>
+                    <div id="toplam-sehir-sayisi">⏳ Veriler yükleniyor...</div>
+                </div>
+            </div>
+            <div style="margin-top:20px;">
+                <span style="font-size:12px; font-weight:bold; color:#0f172a;">AKTİF OPERASYON ŞEHİRLERİ:</span>
+                <div id="aktif-sehirler-listesi" class="sehir-listesi"></div>
+            </div>
+        </div>
     </div>
-    
-    <div id="cityList"></div>
-    
-    <div class="legend">
-        <span class="legend-title">RENKLENDİRME KURALLARI</span>
-        <div class="legend-item">
-            <div class="legend-color" style="background:#22c55e"></div>
-            <span>0-15 kişi (Yüksek esneklik)</span>
+
+    <div id="map-container">
+        <div id="loading">
+            <div id="loading-text">Sistem Başlatılıyor...</div>
+            <div id="debug-log"></div>
         </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background:#f59e0b"></div>
-            <span>16-50 kişi (Orta esneklik)</span>
-        </div>
-        <div class="legend-item">
-            <div class="legend-color" style="background:#ef4444"></div>
-            <span>51+ kişi (Toplu hizmet)</span>
-        </div>
+        <div id="map"></div>
     </div>
-</div>
 
-<div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const GOOGLE_SHEET_LINKI = 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv';
+        const PLAKA_KODLARI = { 'adana': 1, 'adiyaman': 2, 'afyonkarahisar': 3, 'agri': 4, 'amasya': 5, 'ankara': 6, 'antalya': 7, 'artvin': 8, 'aydin': 9, 'balikesir': 10, 'bilecik': 11, 'bingol': 12, 'bitlis': 13, 'bolu': 14, 'burdur': 15, 'bursa': 16, 'canakkale': 17, 'cankiri': 18, 'corum': 19, 'denizli': 20, 'diyarbakir': 21, 'edirne': 22, 'elazig': 23, 'erzincan': 24, 'erzurum': 25, 'eskisehir': 26, 'gaziantep': 27, 'giresun': 28, 'gumushane': 29, 'hakkari': 30, 'hatay': 31, 'isparta': 32, 'mersin': 33, 'istanbul': 34, 'izmir': 35, 'kars': 36, 'kastamonu': 37, 'kayseri': 38, 'kirklareli': 39, 'kirsehir': 40, 'kocaeli': 41, 'konya': 42, 'kutahya': 43, 'malatya': 44, 'manisa': 45, 'kahramanmaras': 46, 'mardin': 47, 'mugla': 48, 'mus': 49, 'nevsehir': 50, 'nigde': 51, 'ordu': 52, 'rize': 53, 'sakarya': 54, 'samsun': 55, 'siirt': 56, 'sinop': 57, 'sivas': 58, 'tekirdag': 59, 'tokat': 60, 'trabzon': 61, 'tunceli': 62, 'sanliurfa': 63, 'usak': 64, 'van': 65, 'yozgat': 66, 'zonguldak': 67, 'aksaray': 68, 'bayburt': 69, 'karaman': 70, 'kirikkale': 71, 'batman': 72, 'sirnak': 73, 'bartin': 74, 'ardahan': 75, 'igdir': 76, 'yalova': 77, 'karabuk': 78, 'kilis': 79, 'osmaniye': 80, 'duzce': 81 };
 
-<script>
-    // ============ GLOBAL DEĞİŞKENLER ============
-    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv';
-    let allData = [];
-    let mapInstance = null;
-    let currentGeoJsonLayer = null;
+        // HARİTA YEDEKLERİ
+        const YEDEK_TR_VERISI = { "type": "FeatureCollection", "features": [{ "type": "Feature", "properties": { "name": "Istanbul" }, "geometry": { "type": "Polygon", "coordinates": [[[28.0, 41.0], [29.5, 41.0], [29.5, 41.6], [28.0, 41.6], [28.0, 41.0]]] } }]};
 
-    // ============ HARİTA BAŞLAT ============
-    mapInstance = L.map('map').setView([39.0, 35.0], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
-        maxZoom: 18
-    }).addTo(mapInstance);
+        var map = L.map('map', { zoomControl: false }).setView([39.0, 35.5], 6);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: 'YMK Catering' }).addTo(map);
 
-    // ============ YARDIMCI FONKSİYONLAR ============
-    function normalizeText(text) {
-        if (!text) return '';
-        return text.toString().toLowerCase()
-            .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
-            .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-            .trim()
-            .replace(/[^a-z0-9]/g, '');
-    }
+        let activeLayer = L.layerGroup().addTo(map);
+        let tumVeriler = []; 
+        let mevcutFirmalar = new Set();
+        let aktifSehirlerSet = new Set(); 
 
-    function getColorByLimit(limit) {
-        const num = parseInt(limit);
-        if (num <= 15) return '#22c55e';
-        if (num <= 50) return '#f59e0b';
-        return '#ef4444';
-    }
-
-    // ============ VERİ YÜKLEME ============
-    function loadData() {
-        Papa.parse(SHEET_URL, {
-            download: true,
-            header: true,
-            complete: function(results) {
-                allData = results.data.filter(row => 
-                    row.Sehir && row.Ilce && row.Firma && row.Limit
-                );
-                
-                document.getElementById('dataStatus').innerHTML = 
-                    `<strong>${allData.length}</strong> kayıt yüklendi`;
-                
-                displayCityList();
-            },
-            error: function() {
-                document.getElementById('dataStatus').innerHTML = 
-                    '<strong style="color:#dc2626">Veri yüklenemedi!</strong>';
-            }
-        });
-    }
-
-    // ============ ŞEHİR LİSTESİ GÖSTER ============
-    function displayCityList() {
-        const cities = [...new Set(allData.map(row => row.Sehir.trim()))].sort();
-        const listDiv = document.getElementById('cityList');
-        listDiv.innerHTML = '';
-        
-        cities.forEach(city => {
-            const item = document.createElement('div');
-            item.className = 'city-item';
-            item.textContent = city.toUpperCase();
-            item.onclick = () => loadCityMap(city);
-            listDiv.appendChild(item);
-        });
-    }
-
-    // ============ ŞEHİR HARİTASI YÜKLE ============
-    async function loadCityMap(cityName) {
-        const cityCode = normalizeText(cityName);
-        
-        // Önceki harita katmanını temizle
-        if (currentGeoJsonLayer) {
-            mapInstance.removeLayer(currentGeoJsonLayer);
-            currentGeoJsonLayer = null;
+        function log(msg) {
+            const el = document.getElementById('debug-log');
+            el.style.display = 'block';
+            el.innerHTML += msg + "<br>";
+            console.log(msg);
         }
-        
-        // Sadece İstanbul için harita dosyası var
-        if (cityCode !== 'istanbul') {
-            alert(`${cityName} için harita dosyası henüz eklenmedi. Sadece İstanbul aktif.`);
-            return;
-        }
-        
-        try {
-            const response = await fetch('istanbul.json');
-            if (!response.ok) throw new Error('Dosya bulunamadı');
-            
-            const geojsonData = await response.json();
-            
-            currentGeoJsonLayer = L.geoJSON(geojsonData, {
-                style: function(feature) {
-                    const districtName = feature.properties.name || 
-                                       feature.properties.NAME || 
-                                       feature.properties.ilce || 
-                                       '';
-                    
-                    // Bu ilçedeki tüm firmaların limitlerini bul
-                    const limits = allData
-                        .filter(row => 
-                            normalizeText(row.Sehir) === cityCode && 
-                            normalizeText(row.Ilce) === normalizeText(districtName)
-                        )
-                        .map(row => parseInt(row.Limit) || 999);
-                    
-                    // En düşük limiti al (en avantajlı)
-                    const minLimit = limits.length > 0 ? Math.min(...limits) : null;
-                    
-                    return {
-                        fillColor: minLimit ? getColorByLimit(minLimit) : '#cbd5e1',
-                        weight: 2,
-                        opacity: 1,
-                        color: 'white',
-                        fillOpacity: 0.7
-                    };
-                },
-                onEachFeature: function(feature, layer) {
-                    const districtName = feature.properties.name || 
-                                       feature.properties.NAME || 
-                                       feature.properties.ilce || 
-                                       'Bilinmiyor';
-                    
-                    // Bu ilçedeki firmaları bul
-                    const firms = allData.filter(row =>
-                        normalizeText(row.Sehir) === cityCode && 
-                        normalizeText(row.Ilce) === normalizeText(districtName)
-                    );
-                    
-                    if (firms.length === 0) {
-                        layer.bindPopup(`<b>${districtName}</b><br><i>Henüz hizmet yok</i>`);
-                        return;
-                    }
-                    
-                    // Popup içeriği oluştur
-                    let popupContent = `<div style="font-family:sans-serif; max-width:250px;">
-                        <h3 style="margin:0 0 10px 0; color:#1e293b; font-size:16px;">${districtName}</h3>`;
-                    
-                    firms.forEach(firm => {
-                        const color = getColorByLimit(firm.Limit);
-                        popupContent += `
-                            <div style="margin:6px 0; padding:6px; background:#f8fafc; border-radius:4px;">
-                                <strong>${firm.Firma}</strong><br>
-                                <span style="color:${color}; font-weight:600;">Min ${firm.Limit} kişi</span>
-                            </div>`;
-                    });
-                    
-                    popupContent += '</div>';
-                    layer.bindPopup(popupContent);
-                }
-            }).addTo(mapInstance);
-            
-            // Haritayı şehre odakla
-            mapInstance.fitBounds(currentGeoJsonLayer.getBounds());
-            
-            // Geri butonunu göster
-            document.getElementById('backBtn').classList.remove('hidden');
-            
-        } catch (error) {
-            console.error('Harita yükleme hatası:', error);
-            alert('Harita dosyası yüklenemedi. Lütfen internet bağlantınızı kontrol edin.');
-        }
-    }
 
-    // ============ TÜRKİYE GENELİNE DÖN ============
-    document.getElementById('backBtn').addEventListener('click', function() {
-        if (currentGeoJsonLayer) {
-            mapInstance.removeLayer(currentGeoJsonLayer);
-            currentGeoJsonLayer = null;
-        }
-        mapInstance.setView([39.0, 35.0], 6);
-        this.classList.add('hidden');
-    });
-
-    // ============ BAŞLANGIÇ ============
-    loadData();
-</script>
-
-</body>
-</html>
+        function verileriYukle() {
+            log("1. Excel verisi çekiliyor...");
+            Papa.parse(GOOGLE_SHEET_LINKI, {
+                download: true,
+                heade
