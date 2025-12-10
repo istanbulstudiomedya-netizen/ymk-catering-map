@@ -4,128 +4,115 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YMK Catering - İnteraktif Harita</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        body { margin:0; font-family:'Inter',sans-serif; display:flex; height:100vh; overflow:hidden; }
-        #sidebar { width:380px; background:#fff; border-right:1px solid #e2e8f0; padding:24px; overflow-y:auto; }
-        #map { flex:1; }
-        .sehir-item { padding:14px; background:#f8fafc; margin:8px 0; border-radius:8px; cursor:pointer; font-weight:600; transition:.2s; }
-        .sehir-item:hover { background:#dbeafe; transform:translateX(5px); }
-        .hidden { display:none; }
-        .back-btn { padding:10px 16px; background:#1e40af; color:white; border:none; border-radius:8px; cursor:pointer; margin-bottom:20px; }
-        .min-pax { font-weight:700; }
+        body,html{margin:0;padding:0;height:100%;font-family:'Inter',sans-serif;overflow:hidden;display:flex;}
+        #sidebar{width:360px;background:#fff;border-right:1px solid #e2e8f0;padding:24px;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.08);}
+        #map{flex:1;}
+        h1{font-size:24px;margin:0;color:#1e293b;}
+        .subtitle{color:#16a34a;font-weight:600;font-size:14px;margin-top:4px;}
+        .sehir-item{padding:14px 16px;background:#f8fafc;border-radius:10px;margin:10px 0;cursor:pointer;font-weight:600;transition:.2s;}
+        .sehir-item:hover{background:#dbeafe;transform:translateX(6px);}
+        .back-btn{padding:10px 20px;background:#1e40af;color:#fff;border:none;border-radius:8px;cursor:pointer;margin:20px 0;font-weight:600;}
+        .hidden{display:none;}
     </style>
 </head>
 <body>
 
 <div id="sidebar">
     <h1>YMK Catering</h1>
-    <p style="color:#22c55e; font-weight:600;">İnteraktif Harita Aktif</p>
-    <button class="back-btn hidden" id="backBtn">← Türkiye Geneli</button>
-    
-    <div id="sehir-listesi"></div>
+    <div class="subtitle">İnteraktif Operasyon Haritası (Canlı)</div>
+    <button id="backBtn" class="back-btn hidden">← Türkiye Geneli</button>
+    <div id="sehirListesi" style="margin-top:30px;"></div>
 </div>
 
 <div id="map"></div>
 
 <script>
-    const SHEET = 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv';
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv';
     let veri = [], map, currentLayer;
 
-    const map = L.map('map').setView([39.0, 35.5], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
+    const map = L.map('map = L.map('map').setView([39.0, 35.0], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function temizle(str) {
-        return str?.toLowerCase()
-            .replace(/[ğ]/gi,'g').replace(/[ü]/gi,'u').replace(/[ş]/gi,'s')
-            .replace(/[ı]/gi,'i').replace(/[ö]/gi,'o').replace(/[ç]/gi,'c')
-            .replace(/[^a-z0-9]/g,'');
-    }
+    function temizle(str){ return str?.toLowerCase().replace(/[ğüşöçıİ]/gi,c=>c.normalize('NFD')[0]).replace(/[^a-z0-9]/g,''); }
 
-    // Renk hesaplama
-    function renkBul(limit) {
-        if (limit <= 15) return "#22c55e";
-        if (limit <= 50) return "#f59e0b";
+    function renk(limit){
+        if(limit<=15) return "#22c55e";
+        if(limit<=50) return "#f59e0b";
         return "#ef4444";
     }
 
-    // Şehir tıklandığında haritayı yükle
-    async function sehriAc(sehirAdi) {
-        const kod = temizle(sehirAdi);
-        document.querySelectorAll('.sehir-item').forEach(el => el.classList.remove('active'));
-        event.target.classList.add('active');
+    async function sehriAc(sehir){
+        const kod = temizle(sehir);
+        if(currentLayer) map.removeLayer(currentLayer);
 
-        // Önceki haritayı temizle
-        if (currentLayer) map.removeLayer(currentLayer);
+        // Dosya adı kontrolü
+        let dosyaAdi = kod === "istanbul" ? "istanbul.json" : null;
+        if(!dosyaAdi) { alert("Bu şehir için harita henüz eklenmedi."); return; }
 
-        // Sadece o şehre ait GeoJSON’u yükle
-        const dosya = `${kod}.geojson`; // istanbul.geojson, ankara.geojson vs.
         try {
-            const res = await fetch(dosya);
-            if (!res.ok) throw new Error();
-            const geo = await res.json();
+            const resp = await fetch(dosyaAdi);
+            const geojson = await resp.json();
 
-            currentLayer = L.geoJSON(geo, {
+            currentLayer = L.geoJSON(geojson, {
                 style: feature => {
-                    const ilce = feature.properties.name || feature.properties.ilce;
-                    // O ilçedeki en düşük limit
-                    const limitler = veri
-                        .filter(r => temizle(r.Sehir) === kod && temizle(r.Ilce) === temizle(ilce))
-                        .map(r => +r.Limit);
-                    const enDusuk = limitler.length ? Math.min(...limitler) : null;
+                    const ilce = feature.properties.name || feature.properties.ilce || feature.properties.plaka;
+                    const limits = veri
+                        .filter(r => temizle(r.Sehir)===kod && temizle(r.Ilce)===temizle(ilce))
+                        .map(r => +r.Limit || 999);
+                    const enIyi = limits.length ? Math.min(...limits) : null;
                     return {
-                        fillColor: enDusuk ? renkBul(enDusuk) : "#94a3b8",
-                        weight: 2,
-                        opacity: 1,
-                        color: 'white',
-                        fillOpacity: 0.7
+                        fillColor: enIyi ? renk(enIyi) : "#cbd5e1",
+                        weight: 1.5,
+                        color: "white",
+                        fillOpacity: 0.75
                     };
                 },
                 onEachFeature: (feature, layer) => {
                     const ilce = feature.properties.name || feature.properties.ilce;
-                    const firmalar = veri.filter(r => 
-                        temizle(r.Sehir) === kod && temizle(r.Ilce) === temizle(ilce));
-                    let popup = `<b>${ilce}</b><br>`;
-                    firmalar.forEach(f => {
-                        popup += `${f.Firma}: <span style="color:${renkBul(f.Limit)}"><b>Min ${f.Limit} kişi</b></span><br>`;
+                    const firmalar = veri.filter(r => temizle(r.Sehir)===kod && temizle(r.Ilce)===temizle(ilce));
+                    if(firmalar.length===0) return;
+                    let html = `<b>${ilce.toUpperCase()}</b><hr style="margin:8px 0">`;
+                    firmalar.forEach(f=>{
+                        html += `<div style="margin:4px 0"><b>${f.Firma}</b>: <span style="color:${renk(f.Limit)}">Min ${f.Limit} kişi</span></div>`;
                     });
-                    layer.bindPopup(popup);
+                    layer.bindPopup(html);
                 }
             }).addTo(map);
 
             map.fitBounds(currentLayer.getBounds());
-            document.getElementById('backBtn').classList.remove('hidden');
-        } catch {
-            alert(`${sehirAdi} için harita dosyası henüz eklenmedi. Yakında eklenecek!`);
+            document.getElementById("backBtn").classList.remove("hidden");
+        } catch(e) {
+            alert("Harita dosyası yüklenemedi: " + dosyaAdi);
         }
     }
 
-    // Veri yükle ve şehir listesini oluştur
-    Papa.parse(SHEET, {
+    // Google Sheet'ten veri çek
+    Papa.parse(SHEET_URL, {
         download: true,
         header: true,
-        complete: function(res) {
-            veri = res.data.filter(r => r.Sehir && r.Ilce && r.Firma && r.Limit);
-            const sehirler = [...new Set(veri.map(r => r.Sehir))].sort();
-            const liste = document.getElementById('sehir-listesi');
-            sehirler.forEach(s => {
-                const div = document.createElement('div');
-                div.className = 'sehir-item';
+        complete: function(results) {
+            veri = results.data.filter(r => r.Sehir && r.Ilce && r.Firma && r.Limit);
+            const sehirler = [...new Set(veri.map(r=>r.Sehir.trim()))].sort();
+
+            const liste = document.getElementById("sehirListesi");
+            sehirler.forEach(s=>{
+                const div = document.createElement("div");
+                div.className = "sehir-item";
                 div.textContent = s.toUpperCase();
-                div.onclick = () => sehriAc(s);
+                div.onclick = ()=>sehriAc(s);
                 liste.appendChild(div);
             });
         }
     });
 
-    document.getElementById('backBtn').onclick = () => {
-        if (currentLayer) map.removeLayer(currentLayer);
-        map.setView([39.0, 35.5], 6);
-        document.getElementById('backBtn').classList.add('hidden');
+    document.getElementById("backBtn").onclick = ()=>{
+        if(currentLayer) map.removeLayer(currentLayer);
+        map.setView([39.0, 35.0], 6);
+        document.getElementById("backBtn").classList.add("hidden");
     };
 </script>
 </body>
