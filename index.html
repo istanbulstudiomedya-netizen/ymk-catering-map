@@ -177,6 +177,41 @@
             font-family: inherit;
         }
         
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        
+        .loading-spinner {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 16px;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
         @media (max-width: 768px) {
             body { flex-direction: column; }
             #sidebar { width: 100%; height: 40%; border-right: none; border-bottom: 2px solid var(--border); }
@@ -189,7 +224,7 @@
 <aside id="sidebar">
     <header class="brand">
         <h1>YMK Catering</h1>
-        <span class="subtitle">Operasyon Yönetim Sistemi</span>
+        <span class="subtitle">Tüm Türkiye Operasyon Haritası</span>
     </header>
 
     <button id="backButton" class="back-btn hidden">← Türkiye Geneli</button>
@@ -227,12 +262,27 @@
 
 <main id="map"></main>
 
+<div id="loadingOverlay" class="loading-overlay hidden">
+    <div class="loading-spinner">
+        <div class="spinner"></div>
+        <div style="font-weight:600; color:#1e293b;">Harita yükleniyor...</div>
+    </div>
+</div>
+
 <script>
 // ============================================
 // YAPILANDIRMA
 // ============================================
 const CONFIG = {
     SHEET_URL: 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv',
+    
+    // TÜRKİYE GEOJSON KAYNAKLARI (Sırayla denenecek)
+    GEOJSON_SOURCES: [
+        'https://raw.githubusercontent.com/alpakih/turkey-geojson/master/json/turkey-district.json',
+        'https://raw.githubusercontent.com/mrtysn/turkey-geojson/master/turkey-districts.json',
+        'turkiye-ilceler.json' // Kendi dosyan varsa
+    ],
+    
     MAP_CENTER: [39.0, 35.0],
     MAP_ZOOM: 6,
     COLORS: {
@@ -249,6 +299,34 @@ const CONFIG = {
 let map = null;
 let currentLayer = null;
 let allData = [];
+let turkeyGeoJSON = null; // MASTER GEOJSON (Tüm Türkiye)
+
+// ============================================
+// ŞEHİR - PLAKA EŞLEŞTİRME
+// ============================================
+const CITY_PLATE_MAP = {
+    'adana': '01', 'adiyaman': '02', 'afyonkarahisar': '03', 'agri': '04',
+    'amasya': '05', 'ankara': '06', 'antalya': '07', 'artvin': '08',
+    'aydin': '09', 'balikesir': '10', 'bilecik': '11', 'bingol': '12',
+    'bitlis': '13', 'bolu': '14', 'burdur': '15', 'bursa': '16',
+    'canakkale': '17', 'cankiri': '18', 'corum': '19', 'denizli': '20',
+    'diyarbakir': '21', 'edirne': '22', 'elazig': '23', 'erzincan': '24',
+    'erzurum': '25', 'eskisehir': '26', 'gaziantep': '27', 'giresun': '28',
+    'gumushane': '29', 'hakkari': '30', 'hatay': '31', 'isparta': '32',
+    'mersin': '33', 'istanbul': '34', 'izmir': '35', 'kars': '36',
+    'kastamonu': '37', 'kayseri': '38', 'kirklareli': '39', 'kirsehir': '40',
+    'kocaeli': '41', 'konya': '42', 'kutahya': '43', 'malatya': '44',
+    'manisa': '45', 'kahramanmaras': '46', 'mardin': '47', 'mugla': '48',
+    'mus': '49', 'nevsehir': '50', 'nigde': '51', 'ordu': '52',
+    'rize': '53', 'sakarya': '54', 'samsun': '55', 'siirt': '56',
+    'sinop': '57', 'sivas': '58', 'tekirdag': '59', 'tokat': '60',
+    'trabzon': '61', 'tunceli': '62', 'sanliurfa': '63', 'usak': '64',
+    'van': '65', 'yozgat': '66', 'zonguldak': '67', 'aksaray': '68',
+    'bayburt': '69', 'karaman': '70', 'kirikkale': '71', 'batman': '72',
+    'sirnak': '73', 'bartin': '74', 'ardahan': '75', 'igdir': '76',
+    'yalova': '77', 'karabuk': '78', 'kilis': '79', 'osmaniye': '80',
+    'duzce': '81'
+};
 
 // ============================================
 // YARDIMCI FONKSİYONLAR
@@ -276,6 +354,13 @@ function updateStatus(message, color = '#f59e0b') {
     }
 }
 
+function showLoading(show = true) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.classList.toggle('hidden', !show);
+    }
+}
+
 function log(message, type = 'info') {
     const colors = {
         info: '#3b82f6',
@@ -284,6 +369,71 @@ function log(message, type = 'info') {
         warn: '#f59e0b'
     };
     console.log(`%c[YMK] ${message}`, `color: ${colors[type]}; font-weight: bold`);
+}
+
+// ============================================
+// MASTER GEOJSON YÜKLEME (TEK SEFER)
+// ============================================
+async function loadTurkeyGeoJSON() {
+    if (turkeyGeoJSON) {
+        log('GeoJSON zaten yüklü (cache)', 'info');
+        return turkeyGeoJSON;
+    }
+    
+    log('Türkiye GeoJSON yükleniyor...', 'info');
+    showLoading(true);
+    
+    // Sırayla kaynakları dene
+    for (const source of CONFIG.GEOJSON_SOURCES) {
+        try {
+            log(`Deneniyor: ${source}`, 'info');
+            const response = await fetch(source);
+            
+            if (!response.ok) continue;
+            
+            turkeyGeoJSON = await response.json();
+            log('GeoJSON başarıyla yüklendi!', 'success');
+            showLoading(false);
+            return turkeyGeoJSON;
+            
+        } catch (error) {
+            log(`${source} başarısız: ${error.message}`, 'warn');
+            continue;
+        }
+    }
+    
+    showLoading(false);
+    throw new Error('Hiçbir GeoJSON kaynağı yüklenemedi');
+}
+
+// ============================================
+// ŞEHİR FİLTRELEME
+// ============================================
+function filterGeoJSONByCity(cityName) {
+    if (!turkeyGeoJSON) return null;
+    
+    const cityKey = normalize(cityName);
+    const plateCode = CITY_PLATE_MAP[cityKey];
+    
+    log(`${cityName} için filtre uygulanıyor (Plaka: ${plateCode})`, 'info');
+    
+    // GeoJSON'daki ilçeleri şehre göre filtrele
+    const filtered = {
+        type: 'FeatureCollection',
+        features: turkeyGeoJSON.features.filter(feature => {
+            const props = feature.properties;
+            
+            // Farklı GeoJSON formatlarına uyum sağla
+            const featurePlate = props.il_kodu || props.plate || props.plaka || props.il;
+            const featureCity = normalize(props.il_adi || props.city || props.sehir || '');
+            
+            return featurePlate === plateCode || featureCity === cityKey;
+        })
+    };
+    
+    log(`${filtered.features.length} ilçe bulundu`, filtered.features.length > 0 ? 'success' : 'warn');
+    
+    return filtered.features.length > 0 ? filtered : null;
 }
 
 // ============================================
@@ -375,32 +525,33 @@ function renderCityList() {
 }
 
 async function loadCityMap(cityName) {
-    const cityKey = normalize(cityName);
-    
     // Önceki katmanı temizle
     if (currentLayer) {
         map.removeLayer(currentLayer);
         currentLayer = null;
     }
     
-    // Sadece İstanbul aktif
-    if (cityKey !== 'istanbul') {
-        alert(`${cityName} için harita henüz eklenmedi. Sadece İstanbul aktif.`);
-        log(`${cityName} haritası yok`, 'warn');
-        return;
-    }
-    
     log(`${cityName} haritası yükleniyor`, 'info');
+    showLoading(true);
     
     try {
-        const response = await fetch('istanbul.json');
-        if (!response.ok) throw new Error('Dosya bulunamadı');
+        // Master GeoJSON'ı yükle (ilk seferden sonra cache'ten gelir)
+        await loadTurkeyGeoJSON();
         
-        const geojson = await response.json();
+        // Sadece o şehrin ilçelerini filtrele
+        const cityGeoJSON = filterGeoJSONByCity(cityName);
         
-        currentLayer = L.geoJSON(geojson, {
+        if (!cityGeoJSON || cityGeoJSON.features.length === 0) {
+            showLoading(false);
+            alert(`${cityName} için harita verisi bulunamadı. GeoJSON formatı uyumsuz olabilir.`);
+            log(`${cityName} için veri bulunamadı`, 'error');
+            return;
+        }
+        
+        // Haritayı çiz
+        currentLayer = L.geoJSON(cityGeoJSON, {
             style: (feature) => {
-                const district = feature.properties.name || feature.properties.NAME || feature.properties.ilce || '';
+                const district = feature.properties.ilce_adi || feature.properties.name || feature.properties.ilce || '';
                 const minLimit = getMinLimit(cityName, district);
                 
                 return {
@@ -412,7 +563,7 @@ async function loadCityMap(cityName) {
                 };
             },
             onEachFeature: (feature, layer) => {
-                const district = feature.properties.name || feature.properties.NAME || feature.properties.ilce || 'Bilinmiyor';
+                const district = feature.properties.ilce_adi || feature.properties.name || feature.properties.ilce || 'Bilinmiyor';
                 const firms = getDistrictFirms(cityName, district);
                 
                 let popup = `<div style="font-family:sans-serif; min-width:250px;">
@@ -443,10 +594,12 @@ async function loadCityMap(cityName) {
         
         map.fitBounds(currentLayer.getBounds());
         document.getElementById('backButton').classList.remove('hidden');
+        showLoading(false);
         log(`${cityName} haritası yüklendi`, 'success');
         
     } catch (error) {
-        alert('Harita dosyası yüklenemedi!');
+        showLoading(false);
+        alert('Harita yüklenirken hata oluştu!');
         log(`Harita hatası: ${error.message}`, 'error');
     }
 }
