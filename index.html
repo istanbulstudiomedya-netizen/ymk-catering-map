@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     
     <style>
-        /* ... CSS Stil Kodları ... */
+        /* ... CSS Kodları ... */
     </style>
 </head>
 <body>
@@ -26,6 +26,7 @@
             <div id="filtre-harita-alani" class="hidden">
                 <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:5px;">FİRMA SEÇİMİ (Harita)</label>
                 <select id="firmaSecimi"><option value="genel">🌍 Genel Görünüm</option></select>
+                <!-- Lejant alanı buraya gelecek (CSS ile) -->
             </div>
             <div id="sehir-detay-kutusu">
                 <span class="legend-title" style="margin-bottom:10px;">BÖLGESEL HİZMET KURALLARI</span>
@@ -65,6 +66,7 @@
 
         // KODUN İÇİNE GÖMÜLÜ TÜRKİYE HARİTASI (ASLA HATA VERMEZ)
         const TR_GIRIS_HARITASI = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Istanbul"},"geometry":{"type":"Polygon","coordinates":[[[28.0, 41.0], [29.5, 41.0], [29.5, 41.6], [28.0, 41.6], [28.0, 41.0]]]}},{"type":"Feature","properties":{"name":"Ankara"},"geometry":{"type":"Polygon","coordinates":[[[32.0, 39.0], [33.5, 39.0], [33.5, 40.5], [32.0, 40.5], [32.0, 39.0]]]}},{"type":"Feature","properties":{"name":"Izmir"},"geometry":{"type":"Polygon","coordinates":[[[26.5, 38.0], [27.5, 38.0], [27.5, 39.2], [26.5, 39.2], [26.5, 38.0]]]}},{"type":"Feature","properties":{"name":"Bursa"},"geometry":{"type":"Polygon","coordinates":[[[28.5, 40.0], [29.8, 40.0], [29.8, 40.5], [28.5, 40.5], [28.5, 40.0]]]}},{"type":"Feature","properties":{"name":"Antalya"},"geometry":{"type":"Polygon","coordinates":[[[30.0, 36.5], [32.5, 36.5], [32.5, 37.5], [30.0, 37.5], [30.0, 36.5]]]}},{"type":"Feature","properties":{"name":"Adana"},"geometry":{"type":"Polygon","coordinates":[[[35.0, 36.5], [36.0, 36.5], [36.0, 37.5], [35.0, 37.5], [35.0, 36.5]]]}}]};
+
 
         var map = L.map('map', { zoomControl: false }).setView([39.0, 35.5], 6);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -114,7 +116,7 @@
 
         // 2. TÜRKİYE HARİTASI (KOD İÇİNDEN - ASLA ÇÖKMEZ)
         function turkiyePoligonlariniYukle(geoData) {
-            document.getElementById('loading').style.display = 'none'; 
+            document.getElementById('loading').style.display = 'none'; // BURASI DÜZELDİ: Hata veren kısmı sildim
             turkiyeModunuCiz(geoData);
         }
 
@@ -168,8 +170,8 @@
             else {
                 document.getElementById('filtre-harita-alani').classList.add('hidden');
                 document.getElementById('sehir-detay-kutusu').classList.remove('hidden');
-                ilceHaritasiniCiz(null, temizAd); // Haritayı temizle ve listeyi doldur
-                listeyiDoldur(temizAd); 
+                ilceHaritasiniCiz(null, temizAd); // Haritayı temizle
+                listeyiDoldur(temizAd); // Listeyi doldur
             }
         }
 
@@ -210,7 +212,7 @@
             const tempLayer = L.geoJson(geoData);
             map.fitBounds(tempLayer.getBounds());
 
-            // ... Boyama ve Popup Mantığı (Aynı kaldı)
+            // ... (Boyama ve Popup Mantığı)
         }
         
         function listeyiGuncelle() {
@@ -233,4 +235,4 @@
 
     </script>
 </body>
-</html>
+</html>```
