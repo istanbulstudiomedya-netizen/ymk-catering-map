@@ -2,27 +2,32 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>YMK Catering - Veri Yönetim Paneli</title>
-    <!-- HARİTA KÜTÜPHANESİNİ SİLDİK, ARTIK SADECE VERİ YÖNETİMİ -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YMK Catering - Operasyon Paneli</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     
     <style>
-        body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; height: 100vh; }
-        #sidebar { width: 380px; background: #fff; border-right: 1px solid #e2e8f0; padding: 25px; display: flex; flex-direction: column; z-index: 20; box-shadow: 4px 0 20px rgba(0,0,0,0.05); }
-        
-        #map-container { flex-grow: 1; position: relative; background: #e2e8f0; /* Harita yerine gri alan */ }
-        #map-placeholder { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            text-align: center; color: #64748b; font-size: 14px; 
-        }
-
-        /* ... Diğer CSS kodları ... */
-        h1 { font-size: 20px; color: #0f172a; margin: 0; font-weight: 800; }
-        .subtitle { font-size: 12px; color: #64748b; margin-bottom: 20px; display:block; }
-        #sehir-detay-kutusu { background: #f8fafc; border-radius: 8px; padding: 15px; border: 1px solid #e2e8f0; margin-top: 15px; max-height: 400px; overflow-y: auto; }
-        .min-pax { font-weight: bold; color: #10b981; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; height: 100vh; overflow: hidden; }
+        #sidebar { width: 380px; background: white; border-right: 1px solid #e2e8f0; padding: 24px; overflow-y: auto; box-shadow: 2px 0 10px rgba(0,0,0,0.05); }
+        .brand h1 { font-size: 24px; color: #0f172a; font-weight: 700; }
+        .subtitle { font-size: 14px; color: #22c55e; font-weight: 600; }
         .hidden { display: none !important; }
+        #backBtn { margin-bottom: 20px; padding: 10px 16px; background: #f1f5f9; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .legend-box { background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 20px; }
+        .legend-title { font-weight: 700; color: #0f172a; font-size: 14px; display: block; margin-bottom: 8px; }
+        .sehir-listesi { margin-top: 12px; }
+        .sehir-item { padding: 12px; background: #f8fafc; margin-bottom: 8px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 500; transition: all 0.2s; }
+        .sehir-item:hover { background: #e0f2fe; transform: translateX(4px); }
+        #map-container { flex: 1; position: relative; background: #e0f2fe; }
+        #map-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(135deg, #cffafe, #dbeafe); z-index: 10; }
+        #map-placeholder h1 { font-size: 36px; color: #1e40af; margin-bottom: 16px; }
+        #map-placeholder p { font-size: 18px; color: #475569; text-align: center; max-width: 500px; }
+        .detay-firma-baslik { font-weight: 700; color: #1e40af; margin: 16px 0 8px 0; font-size: 15px; }
+        .detay-kural { padding: 8px 12px; background: #f0f9ff; border-radius: 6px; margin-bottom: 6px; display: flex; justify-content: space-between; font-size: 14px; }
+        .min-pax { color: #dc2626; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -30,134 +35,132 @@
     <div id="sidebar">
         <div class="brand">
             <h1>YMK Catering</h1>
-            <span class="subtitle">Veri Yönetim Paneli (Haritasız) 🟢</span>
+            <span class="subtitle">Operasyon Paneli (Stabil Mod) 100%</span>
         </div>
 
-        <button id="backBtn" onclick="turkiyeModunaDon()" class="hidden">← Türkiye Haritası Verilerine Dön</button>
+        <button id="backBtn" onclick="turkiyeModunaDon()" class="hidden">← Türkiye Geneli</button>
 
-        <!-- ŞEHİR DETAY VEYA İSTANBUL HARİTASI KONTROLLERİ -->
         <div id="city-controls" class="hidden">
-            <h2 id="aktif-sehir-baslik" style="font-size:16px; margin:0 0 10px 0; color:#0f172a;">Şehir Detayı</h2>
-            
+            <h2 id="aktif-sehir-baslik" style="font-size:18px; margin:20px 0 10px;">Şehir Detayı</h2>
             <div id="sehir-detay-kutusu">
-                <span class="legend-title" style="margin-bottom:10px;">BÖLGESEL HİZMET KURALLARI</span>
-                <span id="detay-icerik">Bu şehirdeki ilçe bazlı minimum sipariş kuralları buraya gelecek.</span>
+                <span class="legend-title">BÖLGESEL MİNİMUM SİPARİŞ LİMİTLERİ</span>
+                <div id="detay-icerik" style="margin-top:10px;">Yükleniyor...</div>
             </div>
         </div>
         
-        <!-- TÜRKİYE MODU -->
         <div id="turkiye-info">
             <div class="legend-box">
                 <span class="legend-title">SİSTEM DURUMU</span>
                 <div style="font-size: 13px; color: #334155;">
-                    <div style="margin-bottom:5px">📊 Excel: <strong>Bağlı</strong></div>
-                    <div id="toplam-sehir-sayisi">⏳ Veriler yükleniyor...</div>
+                    <div style="margin-bottom:5px">Excel: <strong style="color:#22c55e">Bağlı</strong></div>
+                    <div id="toplam-sehir-sayisi">Veriler yükleniyor...</div>
                 </div>
             </div>
             <div style="margin-top:20px;">
-                <span style="font-size:12px; font-weight:bold; color:#0f172a;">AKTİF OPERASYON ŞEHİRLERİ:</span>
+                <span style="font-size:13px; font-weight:bold; color:#0f172a;">AKTİF ŞEHİRLER (${new Date().getFullYear()}):</span>
                 <div id="aktif-sehirler-listesi" class="sehir-listesi"></div>
             </div>
         </div>
     </div>
 
-    <!-- HARİTA YERİNE GRİ KUTU KOYDUK -->
     <div id="map-container">
         <div id="map-placeholder">
-            <h1>HARİTA YÜKLEME KİTLERİ SİLİNDİ</h1>
-            <p>Bu alan, teknik sorunlar nedeniyle haritasız olarak ayarlandı.<br>
-            Sol menüden şehire tıklayarak veri panelini kullanabilirsiniz.</p>
+            <h1>HARİTA KİTLERİ DEVRE DIŞI</h1>
+            <p>İnternet kısıtlamaları ve performans sebebiyle harita geçici olarak kapatılmıştır.<br>
+            Tüm operasyonel veriler sol panelde gerçek zamanlı olarak görüntülenebilir.</p>
         </div>
+        <div id="map" style="display:none;"></div>
     </div>
 
     <script>
         const GOOGLE_SHEET_LINKI = 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv';
-
-        let tumVeriler = []; 
-        let aktifSehirlerSet = new Set(); 
+        
+        let tumVeriler = [];
+        let aktifSehirlerSet = new Set();
 
         function temizle(txt) {
-            if(!txt) return "";
-            return txt.toLocaleLowerCase('tr-TR').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c').trim();
+            if (!txt) return "";
+            return txt.toString().toLowerCase()
+                .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
+                .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                .replace(/[^a-z0-9]/g, '');
         }
 
-        // 1. EXCEL VERİSİNİ ÇEK
         function verileriYukle() {
             Papa.parse(GOOGLE_SHEET_LINKI, {
-                download: true, header: true, skipEmptyLines: true,
+                download: true,
+                header: true,
                 complete: function(results) {
-                    tumVeriler = results.data;
-                    tumVeriler.forEach(satir => {
-                        if(satir.Sehir) aktifSehirlerSet.add(temizle(satir.Sehir));
+                    tumVeriler = results.data.filter(row => row.Sehir && row.Ilce && row.Firma && row.Limit);
+                    tumVeriler.forEach(row => {
+                        aktifSehirlerSet.add(temizle(row.Sehir));
                     });
-                    
                     listeyiGuncelle();
                 },
-                error: function() { alert("Excel bağlantısı bozuk."); }
+                error: function(err) {
+                    document.getElementById('toplam-sehir-sayisi').innerHTML = 'Excel bağlantısı koptu!';
+                }
             });
         }
 
-        // 2. DETAY AÇMA FONKSİYONU (SADECE LİSTE AÇAR)
         function detaylariAc(sehirAdi) {
             const temizAd = temizle(sehirAdi);
             document.getElementById('turkiye-info').classList.add('hidden');
             document.getElementById('city-controls').classList.remove('hidden');
             document.getElementById('backBtn').classList.remove('hidden');
-            document.getElementById('aktif-sehir-baslik').innerText = sehirAdi + " - Min. Sipariş Analizi";
+            document.getElementById('aktif-sehir-baslik').innerText = sehirAdi.toUpperCase();
 
-            // Listeyi doldur
-            listeyiDoldur(temizAd); 
+            listeyiDoldur(temizAd);
         }
 
-        // 3. LİSTE DOLDURMA (Ankara/İzmir vb. için)
         function listeyiDoldur(sehirKod) {
             const detayIcerik = document.getElementById('detay-icerik');
-            detayIcerik.innerHTML = '';
+            detayIcerik.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8;">Yükleniyor...</div>';
             
-            let firmalarListesi = {};
+            let firmalar = {};
             tumVeriler.forEach(satir => {
-                if(temizle(satir.Sehir) === sehirKod && satir.Ilce) {
-                    if (!firmalarListesi[satir.Firma]) firmalarListesi[satir.Firma] = [];
-                    firmalarListesi[satir.Firma].push({Ilce: satir.Ilce, Limit: satir.Limit});
+                if(temizle(satir.Sehir) === sehirKod) {
+                    const key = satir.Firma.trim();
+                    if (!firmalar[key]) firmalar[key] = [];
+                    firmalar[key].push({Ilce: satir.Ilce.trim(), Limit: parseInt(satir.Limit) || 0});
                 }
             });
 
-            Object.keys(firmalarListesi).sort().forEach(firmaAdi => {
-                let html = `<div class="detay-firma-baslik">${firmaAdi}</div>`;
-                firmalarListesi[firmaAdi].sort((a, b) => a.Ilce.localeCompare(b.Ilce)).forEach(detay => {
-                    html += `<div class="detay-kural"><span>${detay.Ilce}</span> <span class="min-pax">Min ${detay.Limit} Kişi</span></div>`;
-                });
-                detayIcerik.innerHTML += html;
+            let html = '';
+            Object.keys(firmalar).sort().forEach(firma => {
+                html += `<div class="detay-firma-baslik">${firma}</div>`;
+                firmalar[firma]
+                    .sort((a,b) => a.Ilce.localeCompare(b.Ilce))
+                    .forEach(d => {
+                        const renk = d.Limit <= 15 ? '#22c55e' : d.Limit <= 50 ? '#f59e0b' : '#ef4444';
+                        html += `<div class="detay-kural"><span>${d.Ilce}</span> <span class="min-pax" style="color:${renk}">Min ${d.Limit} kişi</span></div>`;
+                    });
             });
 
-            if (Object.keys(firmalarListesi).length === 0) {
-                detayIcerik.innerHTML = `<div style="color:#94a3b8; font-size:13px; text-align:center; padding:20px;">Bu şehirde henüz hizmet veriniz yok.</div>`;
-            }
+            detayIcerik.innerHTML = html || '<div style="color:#94a3b8; text-align:center; padding:30px;">Bu şehirde kayıtlı hizmet yok.</div>';
         }
 
-        // 4. LİSTEYİ GÜNCELLE
         function listeyiGuncelle() {
+            document.getElementById('toplam-sehir-sayisi').innerText = `${aktifSehirlerSet.size} şehirde aktif operasyon`;
             const listeDiv = document.getElementById('aktif-sehirler-listesi');
-            document.getElementById('toplam-sehir-sayisi').innerText = `📊 ${aktifSehirlerSet.size} Şehirde Veri Var`;
             listeDiv.innerHTML = "";
             Array.from(aktifSehirlerSet).sort().forEach(sehir => {
-                const gorunenAd = sehir.charAt(0).toUpperCase() + sehir.slice(1);
+                const gorunen = sehir.charAt(0).toUpperCase() + sehir.slice(1);
                 const item = document.createElement('div');
                 item.className = 'sehir-item';
-                item.innerHTML = `<span>${gorunenAd}</span> <span>➜</span>`;
+                item.innerHTML = `<span>${gorunen}</span><span>→</span>`;
                 item.onclick = () => detaylariAc(sehir);
                 listeDiv.appendChild(item);
             });
         }
 
-        // 5. TÜRKİYE MODUNA DÖN (TEMİZLEME)
-        window.turkiyeModunaDon = function() { 
+        window.turkiyeModunaDon = function() {
             document.getElementById('city-controls').classList.add('hidden');
             document.getElementById('backBtn').classList.add('hidden');
             document.getElementById('turkiye-info').classList.remove('hidden');
         }
 
-        // BAŞLANGIÇ
+        // Başlat
         verileriYukle();
     </script>
 </body>
