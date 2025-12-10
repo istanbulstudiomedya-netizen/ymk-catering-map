@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -41,7 +39,7 @@
 
     <div id="sidebar">
         <h1>YMK Catering</h1>
-        <span class="subtitle">Yerel Veri Modu (V2) 🟢</span>
+        <span class="subtitle">Tünel Bağlantı Modu 🟢</span>
 
         <button id="backBtn" onclick="turkiyeModunaDon()">← Türkiye Haritasına Dön</button>
 
@@ -63,7 +61,7 @@
                 <span style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 8px; display: block; text-transform: uppercase;">SİSTEM DURUMU</span>
                 <div style="font-size: 13px; color: #334155;">
                     <div style="margin-bottom:5px">📊 Excel: <strong>Bağlı</strong></div>
-                    <div style="margin-bottom:5px">📍 İstanbul: <strong>Yerel Dosya</strong></div>
+                    <div style="margin-bottom:5px">🌍 Harita: <strong>Tünel Bağlantı</strong></div>
                     <div id="toplam-sehir-sayisi">⏳ Veriler yükleniyor...</div>
                 </div>
             </div>
@@ -142,17 +140,20 @@
 
         function haritayiBaslat() {
             log("2. Türkiye haritası aranıyor...");
+            
+            // Önce yerel dosyayı dene, yoksa tünele gir
             fetch('./turkiye.json')
-                .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
+                .then(res => { if (!res.ok) throw new Error("Yok"); return res.json(); })
                 .then(data => { log("✔ Yerel (turkiye.json) bulundu!"); haritaBasarili(data); })
                 .catch(() => {
-                    log("⚠️ Yerel yok, CDN deneniyor...");
-                    fetch('https://cdn.jsdelivr.net/gh/alper/turkey-maps-geojson@master/tr-cities-utf8.json')
+                    log("⚠️ Yerel yok, Githack Tüneli deneniyor...");
+                    // Githack ile çekiyoruz (Daha sağlam)
+                    fetch('https://raw.githack.com/alper/turkey-maps-geojson/master/tr-cities-utf8.json')
                         .then(res => res.json())
                         .then(data => haritaBasarili(data))
                         .catch(() => {
-                            log("❌ CDN başarısız. Yedek açılıyor.");
-                            haritaBasarili(YEDEK_TR_VERISI);
+                            log("❌ Harita indirilemedi.");
+                            alert("Türkiye haritası yüklenemedi. Lütfen 'turkiye.json' dosyasını GitHub'a yüklediğinizden emin olun.");
                         });
                 });
         }
@@ -176,6 +177,7 @@
                 onEachFeature: function(feature, layer) {
                     const sehirAdi = feature.properties.name;
                     const temizAd = temizle(sehirAdi);
+                    
                     let tooltipText = `<b>${sehirAdi}</b>`;
                     if(aktifSehirlerSet.has(temizAd)) tooltipText += "<br>✅ Veri Var (Tıkla)";
 
@@ -200,20 +202,21 @@
 
             document.getElementById('loading').style.display = 'block';
             document.getElementById('loading-text').innerText = sehirAdi + " Yükleniyor...";
-            document.getElementById('debug-log').style.display = 'none'; // Logu gizle
+            document.getElementById('debug-log').style.display = 'none';
             
             document.getElementById('turkiye-info').classList.add('hidden');
             document.getElementById('city-controls').classList.remove('hidden');
             document.getElementById('backBtn').style.display = 'block';
             document.getElementById('aktif-sehir-baslik').innerText = sehirAdi;
 
-            // ÖZEL MANTIK: Eğer İstanbul seçildiyse DİREKT yerel dosyayı dene
+            // ÖZEL MANTIK: İstanbul ise yerel dosya, değilse Tünel Linki
             let fetchUrl;
             if (temizAd === 'istanbul') {
                 log("📌 İstanbul seçildi, yerel dosya aranıyor...");
                 fetchUrl = './istanbul.json';
             } else {
-                fetchUrl = `https://cdn.jsdelivr.net/gh/cihadturhan/tr-geojson@master/geo/json/city/${plaka}.json`;
+                // Diğer şehirler için Githack Tüneli
+                fetchUrl = `https://raw.githack.com/cihadturhan/tr-geojson/master/geo/json/city/${plaka}.json`;
             }
 
             fetch(fetchUrl)
@@ -222,12 +225,12 @@
                     document.getElementById('loading').style.display = 'none';
                     ilceHaritasiniCiz(data, temizAd);
                 })
-                .catch(() => {
-                    // Eğer yerel istanbul.json yoksa veya diğer şehirlerde CDN hata verirse
+                .catch((err) => {
+                    log("Harita hatası: " + err);
                     if(temizAd === 'istanbul') {
-                        alert("İstanbul dosyası (istanbul.json) yüklenmemiş! Lütfen GitHub'a yükleyin.");
+                        alert("İstanbul dosyası bulunamadı. Lütfen GitHub'a 'istanbul.json' dosyasını yükleyin.");
                     } else {
-                        alert("Bu şehrin haritası internetten çekilemedi.");
+                        alert(sehirAdi + " haritası internetten çekilemedi. Bu şehirde aktif operasyonunuz varsa, o şehrin JSON dosyasını indirip GitHub'a yükleyerek sorunu çözebilirsiniz.");
                     }
                     turkiyeModunaDon();
                 });
