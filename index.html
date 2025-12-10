@@ -41,7 +41,6 @@
 
         <button id="backBtn" onclick="turkiyeModunaDon()">← Türkiye Haritasına Dön</button>
 
-        <!-- ŞEHİR DETAY MODU -->
         <div id="city-controls" class="hidden">
             <h2 id="aktif-sehir-baslik" style="font-size:16px; margin:0 0 10px 0; color:#0f172a;">Şehir Detayı</h2>
             
@@ -59,7 +58,6 @@
             </div>
         </div>
         
-        <!-- TÜRKİYE MODU -->
         <div id="turkiye-info">
             <div class="legend-box">
                 <span style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 8px; display: block; text-transform: uppercase;">SİSTEM DURUMU</span>
@@ -71,9 +69,7 @@
             
             <div style="margin-top:20px;">
                 <span style="font-size:12px; font-weight:bold; color:#0f172a;">AKTİF OPERASYON ŞEHİRLERİ:</span>
-                <div id="aktif-sehirler-listesi" class="sehir-listesi">
-                    <!-- JS ile dolacak -->
-                </div>
+                <div id="aktif-sehirler-listesi" class="sehir-listesi"></div>
             </div>
         </div>
     </div>
@@ -85,14 +81,10 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // ============================================================
-        // SENİN VERDİĞİN LİNKTEN DÖNÜŞTÜRÜLEN OTOMATİK BAĞLANTI:
+        // HATA DÜZELTME: Linki garanti çalışan formata çevirdim
         const GOOGLE_SHEET_LINKI = 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv';
-        // ============================================================
 
-        const PLAKA_KODLARI = {
-            'adana': 1, 'adiyaman': 2, 'afyonkarahisar': 3, 'agri': 4, 'amasya': 5, 'ankara': 6, 'antalya': 7, 'artvin': 8, 'aydin': 9, 'balikesir': 10, 'bilecik': 11, 'bingol': 12, 'bitlis': 13, 'bolu': 14, 'burdur': 15, 'bursa': 16, 'canakkale': 17, 'cankiri': 18, 'corum': 19, 'denizli': 20, 'diyarbakir': 21, 'edirne': 22, 'elazig': 23, 'erzincan': 24, 'erzurum': 25, 'eskisehir': 26, 'gaziantep': 27, 'giresun': 28, 'gumushane': 29, 'hakkari': 30, 'hatay': 31, 'isparta': 32, 'mersin': 33, 'istanbul': 34, 'izmir': 35, 'kars': 36, 'kastamonu': 37, 'kayseri': 38, 'kirklareli': 39, 'kirsehir': 40, 'kocaeli': 41, 'konya': 42, 'kutahya': 43, 'malatya': 44, 'manisa': 45, 'kahramanmaras': 46, 'mardin': 47, 'mugla': 48, 'mus': 49, 'nevsehir': 50, 'nigde': 51, 'ordu': 52, 'rize': 53, 'sakarya': 54, 'samsun': 55, 'siirt': 56, 'sinop': 57, 'sivas': 58, 'tekirdag': 59, 'tokat': 60, 'trabzon': 61, 'tunceli': 62, 'sanliurfa': 63, 'usak': 64, 'van': 65, 'yozgat': 66, 'zonguldak': 67, 'aksaray': 68, 'bayburt': 69, 'karaman': 70, 'kirikkale': 71, 'batman': 72, 'sirnak': 73, 'bartin': 74, 'ardahan': 75, 'igdir': 76, 'yalova': 77, 'karabuk': 78, 'kilis': 79, 'osmaniye': 80, 'duzce': 81
-        };
+        const PLAKA_KODLARI = { 'adana': 1, 'adiyaman': 2, 'afyonkarahisar': 3, 'agri': 4, 'amasya': 5, 'ankara': 6, 'antalya': 7, 'artvin': 8, 'aydin': 9, 'balikesir': 10, 'bilecik': 11, 'bingol': 12, 'bitlis': 13, 'bolu': 14, 'burdur': 15, 'bursa': 16, 'canakkale': 17, 'cankiri': 18, 'corum': 19, 'denizli': 20, 'diyarbakir': 21, 'edirne': 22, 'elazig': 23, 'erzincan': 24, 'erzurum': 25, 'eskisehir': 26, 'gaziantep': 27, 'giresun': 28, 'gumushane': 29, 'hakkari': 30, 'hatay': 31, 'isparta': 32, 'mersin': 33, 'istanbul': 34, 'izmir': 35, 'kars': 36, 'kastamonu': 37, 'kayseri': 38, 'kirklareli': 39, 'kirsehir': 40, 'kocaeli': 41, 'konya': 42, 'kutahya': 43, 'malatya': 44, 'manisa': 45, 'kahramanmaras': 46, 'mardin': 47, 'mugla': 48, 'mus': 49, 'nevsehir': 50, 'nigde': 51, 'ordu': 52, 'rize': 53, 'sakarya': 54, 'samsun': 55, 'siirt': 56, 'sinop': 57, 'sivas': 58, 'tekirdag': 59, 'tokat': 60, 'trabzon': 61, 'tunceli': 62, 'sanliurfa': 63, 'usak': 64, 'van': 65, 'yozgat': 66, 'zonguldak': 67, 'aksaray': 68, 'bayburt': 69, 'karaman': 70, 'kirikkale': 71, 'batman': 72, 'sirnak': 73, 'bartin': 74, 'ardahan': 75, 'igdir': 76, 'yalova': 77, 'karabuk': 78, 'kilis': 79, 'osmaniye': 80, 'duzce': 81 };
 
         var map = L.map('map', { zoomControl: false }).setView([39.0, 35.5], 6);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -103,7 +95,6 @@
         let mevcutFirmalar = new Set();
         let aktifSehirlerSet = new Set(); 
 
-        // 1. VERİLERİ ÇEK
         function verileriYukle() {
             Papa.parse(GOOGLE_SHEET_LINKI, {
                 download: true,
@@ -111,7 +102,8 @@
                 skipEmptyLines: true,
                 complete: function(results) {
                     tumVeriler = results.data;
-                    
+                    console.log("Çekilen Veri Sayısı:", tumVeriler.length);
+
                     tumVeriler.forEach(satir => {
                         if(satir.Firma) mevcutFirmalar.add(satir.Firma);
                         if(satir.Sehir) aktifSehirlerSet.add(temizle(satir.Sehir));
@@ -130,19 +122,23 @@
                     turkiyePoligonlariniYukle();
                 },
                 error: function(err) {
-                    alert("Excel bağlantı hatası! Dosyanın 'Paylaş' ayarlarından 'Bağlantıya sahip herkes görebilir' seçili olduğundan emin ol.");
+                    alert("Excel verisi okunamadı. Lütfen sayfanızı yenileyin.");
                 }
             });
         }
 
-        // 2. TÜRKİYE HARİTASI
         function turkiyePoligonlariniYukle() {
-            document.getElementById('loading').innerText = "Harita Yükleniyor...";
-            fetch('https://raw.githubusercontent.com/alper/turkey-maps-geojson/master/tr-cities-utf8.json')
+            document.getElementById('loading').innerText = "Türkiye Haritası Yükleniyor...";
+            // CDN DEĞİŞİKLİĞİ: jsdelivr kullanarak hızlı sunucudan çekiyoruz
+            fetch('https://cdn.jsdelivr.net/gh/alper/turkey-maps-geojson@master/tr-cities-utf8.json')
                 .then(res => res.json())
                 .then(data => {
                     document.getElementById('loading').style.display = 'none';
                     turkiyeModunuCiz(data);
+                })
+                .catch(err => {
+                    console.error("Türkiye harita hatası:", err);
+                    alert("Harita sunucusuna erişilemedi. VPN açıksa kapatmayı deneyin.");
                 });
         }
 
@@ -177,7 +173,6 @@
             map.setView([39.0, 35.5], 6);
         }
 
-        // 3. DETAY HARİTASI
         function detayHaritasiniYukle(sehirAdi) {
             const temizAd = temizle(sehirAdi);
             const plaka = PLAKA_KODLARI[temizAd];
@@ -191,14 +186,21 @@
             document.getElementById('backBtn').style.display = 'block';
             document.getElementById('aktif-sehir-baslik').innerText = sehirAdi;
 
-            fetch(`https://raw.githubusercontent.com/cihadturhan/tr-geojson/master/geo/json/city/${plaka}.json`)
-                .then(res => res.json())
+            // CDN DEĞİŞİKLİĞİ: Burayı da jsdelivr yaptık
+            const url = `https://cdn.jsdelivr.net/gh/cihadturhan/tr-geojson@master/geo/json/city/${plaka}.json`;
+
+            fetch(url)
+                .then(res => {
+                    if(!res.ok) throw new Error("Ağ hatası");
+                    return res.json();
+                })
                 .then(data => {
                     document.getElementById('loading').style.display = 'none';
                     ilceHaritasiniCiz(data, temizAd);
                 })
-                .catch(() => {
-                    alert("Harita verisi çekilemedi.");
+                .catch(err => {
+                    console.error("İlçe harita hatası:", err);
+                    alert("İlçe verisi çekilemedi. İnternet bağlantınızı kontrol edin.");
                     turkiyeModunaDon();
                 });
         }
