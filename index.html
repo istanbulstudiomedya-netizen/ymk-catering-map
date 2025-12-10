@@ -2,39 +2,75 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>YMK Catering - Güvenli Mod</title>
+    <title>YMK Catering - Operasyon Paneli</title>
+    <!-- Harita Stilleri -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     
     <style>
+        /* --- TEMEL TASARIM --- */
         body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; height: 100vh; overflow: hidden; }
-        #sidebar { width: 340px; background: #fff; border-right: 1px solid #e2e8f0; padding: 20px; display: flex; flex-direction: column; z-index: 20; box-shadow: 4px 0 15px rgba(0,0,0,0.05); }
+        
+        /* SOL PANEL (SIDEBAR) */
+        #sidebar {
+            width: 340px; background: #fff; border-right: 1px solid #e2e8f0;
+            padding: 25px; display: flex; flex-direction: column; z-index: 20;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.05);
+        }
+
+        .brand { border-bottom: 1px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px; }
+        h1 { font-size: 20px; color: #0f172a; margin: 0; font-weight: 800; }
+        .subtitle { font-size: 12px; color: #64748b; margin-bottom: 0; display:block; }
+
+        /* BUTONLAR VE KONTROLLER */
+        #backBtn { 
+            background:#f1f5f9; border:1px solid #e2e8f0; padding:12px; border-radius:8px; cursor:pointer; width:100%; margin-bottom:15px; display:none; 
+            font-weight: 600; color: #334155; transition: 0.2s; 
+        }
+        #backBtn:hover { background: #e2e8f0; color: #0f172a; }
+
+        select { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 15px; cursor: pointer; font-family: 'Inter'; }
+        
+        /* BİLGİ KUTULARI VE LEJANT */
+        .legend-box { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
+        .legend-title { font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 8px; display: block; text-transform: uppercase; }
+        .legend-item { display: flex; align-items: center; font-size: 12px; margin-bottom: 6px; color: #475569; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+
+        /* YÜKLEME EKRANI */
+        #loading { 
+            position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:20px 40px; border-radius:12px; 
+            box-shadow:0 10px 40px rgba(0,0,0,0.2); text-align:center; z-index:1000; border: 1px solid #e2e8f0; min-width: 300px;
+        }
+        #loading-text { font-weight:600; color:#2563eb; font-size: 16px; margin-bottom: 10px; }
+
+        /* DİĞER */
         #map-container { flex-grow: 1; position: relative; }
         #map { width: 100%; height: 100%; background: #f1f5f9; }
-        
-        h1 { font-size: 20px; color: #0f172a; margin: 0; font-weight: 800; }
-        .subtitle { font-size: 12px; color: #64748b; margin-bottom: 20px; display:block; }
-        
-        #loading { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:20px 40px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.2); text-align:center; z-index:1000; border: 1px solid #e2e8f0; min-width: 300px; }
         .hidden { display: none !important; }
-        /* ... Diğer stiller (Kısaltıldı) ... */
+        .sehir-listesi { max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; padding: 10px; margin-top: 10px; }
+        .sehir-item { font-size: 13px; padding: 8px; cursor: pointer; border-bottom: 1px solid #f8fafc; display: flex; justify-content: space-between; }
+        .sehir-item:hover { background: #f1f5f9; color: #2563eb; }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <h1>YMK Catering</h1>
-        <span class="subtitle">Güvenli Mod (Stabil Versiyon) 🟢</span>
+        <div class="brand">
+            <h1>YMK Catering</h1>
+            <span class="subtitle">Hata Korumalı Operasyon Paneli 🟢</span>
+        </div>
 
-        <button id="backBtn" onclick="turkiyeModunaDon()">← Türkiye Haritasına Dön</button>
+        <button id="backBtn" onclick="turkiyeModunaDon()" class="hidden">← Türkiye Haritasına Dön</button>
 
+        <!-- ŞEHİR DETAY MODU -->
         <div id="city-controls" class="hidden">
             <h2 id="aktif-sehir-baslik" style="font-size:16px; margin:0 0 10px 0; color:#0f172a;">Şehir Detayı</h2>
             <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:5px;">FİRMA SEÇİMİ</label>
             <select id="firmaSecimi"><option value="genel">🌍 Genel Görünüm</option></select>
             <div class="legend-box">
-                <span style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 8px; display: block; text-transform: uppercase;">MİN. SİPARİŞ LİMİTLERİ</span>
+                <span class="legend-title">MİN. SİPARİŞ LİMİTLERİ</span>
                 <div class="legend-item"><div class="dot" style="background:#22c55e"></div> 0 - 15 Kişi (Esnek)</div>
                 <div class="legend-item"><div class="dot" style="background:#f59e0b"></div> 16 - 50 Kişi (Standart)</div>
                 <div class="legend-item"><div class="dot" style="background:#ef4444"></div> 51+ Kişi (Toplu)</div>
@@ -42,9 +78,10 @@
             </div>
         </div>
         
+        <!-- TÜRKİYE MODU -->
         <div id="turkiye-info">
             <div class="legend-box">
-                <span style="font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 8px; display: block; text-transform: uppercase;">SİSTEM DURUMU</span>
+                <span class="legend-title">SİSTEM DURUMU</span>
                 <div style="font-size: 13px; color: #334155;">
                     <div style="margin-bottom:5px">📊 Excel: <strong>Bağlı</strong></div>
                     <div id="toplam-sehir-sayisi">⏳ Veriler yükleniyor...</div>
@@ -66,14 +103,11 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-
     <script>
-        // --- KOD İÇİ VERİLER VE AYARLAR ---
-        // BU KISIMDAKİ VERİ, SİTENİN ÇÖKMEMESİ İÇİN KODUN İÇİNDE SAKLANIYOR
+        // --- AYARLAR VE VERİ ---
         const GOOGLE_SHEET_LINKI = 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv';
-        const ISTANBUL_DOSYASI = './istanbul.json'; // İstanbul'un ilçe haritası (Eğer yüklediysen açılacak)
+        const ISTANBUL_DOSYASI = './istanbul.json'; // Yüklediğin dosya
         
-        // 10 BÜYÜKŞEHRİN BASİTLEŞTİRİLMİŞ KOORDİNATLARI (Giriş Ekranı İçin)
         const TR_GIRIS_HARITASI = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Istanbul"},"geometry":{"type":"Polygon","coordinates":[[[28.0, 41.0], [29.5, 41.0], [29.5, 41.6], [28.0, 41.6], [28.0, 41.0]]]}},{"type":"Feature","properties":{"name":"Ankara"},"geometry":{"type":"Polygon","coordinates":[[[32.0, 39.0], [33.5, 39.0], [33.5, 40.5], [32.0, 40.5], [32.0, 39.0]]]}},{"type":"Feature","properties":{"name":"Izmir"},"geometry":{"type":"Polygon","coordinates":[[[26.5, 38.0], [27.5, 38.0], [27.5, 39.2], [26.5, 39.2], [26.5, 38.0]]]}},{"type":"Feature","properties":{"name":"Bursa"},"geometry":{"type":"Polygon","coordinates":[[[28.5, 40.0], [29.8, 40.0], [29.8, 40.5], [28.5, 40.5], [28.5, 40.0]]]}},{"type":"Feature","properties":{"name":"Antalya"},"geometry":{"type":"Polygon","coordinates":[[[30.0, 36.5], [32.5, 36.5], [32.5, 37.5], [30.0, 37.5], [30.0, 36.5]]]}},{"type":"Feature","properties":{"name":"Adana"},"geometry":{"type":"Polygon","coordinates":[[[35.0, 36.5], [36.0, 36.5], [36.0, 37.5], [35.0, 37.5], [35.0, 36.5]]]}}]};
 
 
@@ -85,13 +119,13 @@
         let tumVeriler = []; 
         let mevcutFirmalar = new Set();
         let aktifSehirlerSet = new Set(); 
-        
+
         function temizle(txt) {
             if(!txt) return "";
             return txt.toLocaleLowerCase('tr-TR').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c').trim();
         }
 
-        // 1. EXCEL VERİSİ
+        // 1. EXCEL VERİSİNİ ÇEK
         function verileriYukle() {
             document.getElementById('loading-text').innerText = "Excel verileri çekiliyor...";
             Papa.parse(GOOGLE_SHEET_LINKI, {
@@ -150,7 +184,7 @@
             }).addTo(activeLayer);
             
             document.getElementById('city-controls').classList.add('hidden');
-            document.getElementById('backBtn').style.display = 'none';
+            document.getElementById('backBtn').classList.add('hidden');
             document.getElementById('turkiye-info').classList.remove('hidden');
             map.setView([39.0, 35.5], 6);
         }
@@ -160,12 +194,12 @@
             const temizAd = temizle(sehirAdi);
             document.getElementById('turkiye-info').classList.add('hidden');
             document.getElementById('city-controls').classList.remove('hidden');
-            document.getElementById('backBtn').style.display = 'block';
+            document.getElementById('backBtn').classList.remove('hidden');
             document.getElementById('aktif-sehir-baslik').innerText = sehirAdi;
 
             // Diğer şehirler için uyarı
             if (temizAd !== 'istanbul') {
-                alert(`⚠️ ${sehirAdi} için detaylı ilçe haritası bulunmuyor.\n\nSadece İstanbul'un 'istanbul.json' dosyası yüklendiği için onu açabiliriz.`);
+                alert(`⚠️ ${sehirAdi} için detaylı ilçe haritası bulunmuyor.\n\nSadece İstanbul'un 'istanbul.json' dosyası yüklü olduğu için onu açabiliriz.`);
                 turkiyeModunaDon();
                 return;
             }
@@ -193,7 +227,7 @@
 
             L.geoJson(geoData, {
                 style: function(feature) {
-                    const ilce = feature.properties.name || feature.properties.ilce;
+                    const ilce = feature.properties.name || feature.properties.ILCE;
                     const firmalar = getBolgeDurumu(aktifSehirKod, ilce);
                     if (firmalar.length === 0) return { fillColor: '#e2e8f0', color: 'white', weight: 1, fillOpacity: 0.5 };
                     
