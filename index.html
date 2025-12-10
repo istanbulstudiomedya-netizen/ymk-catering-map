@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>YMK Catering - Operasyon Paneli</title>
+    <!-- Harita Stilleri -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- CSV Okuyucu Kütüphane -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    
+    <style>
+        body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; height: 100vh; overflow: hidden; }
+        #sidebar { width: 340px; background: #fff; border-right: 1px solid #e2e8f0; padding: 20px; display: flex; flex-direction: column; z-index: 20; box-shadow: 4px 0 15px rgba(0,0,0,0.05); }
+        #map-container { flex-grow: 1; position: relative; }
+        #map { width: 100%; height: 100%; background: #f1f5f9; }
+        
+        h1 { font-size: 20px; color: #0f172a; margin: 0 0 5px 0; font-weight: 800; }
+        p { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+        
+        select { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 15px; cursor: pointer; font-family: 'Inter'; }
+        
+        .legend-box { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .legend-title { font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 8px; display: block; text-transform: uppercase; }
+        .legend-item { display: flex; align-items: center; font-size: 12px; margin-bottom: 6px; color: #475569; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; }
+        
+        #loading { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:white; padding:15px 30px; border-radius:50px; box-shadow:0 10px 30px rgba(0,0,0,0.15); font-weight:600; color:#2563eb; display:flex; align-items:center; gap:10px; z-index:1000; border: 1px solid #e2e8f0; }
+        
+        #backBtn { background:#f1f5f9; border:1px solid #e2e8f0; padding:12px; border-radius:8px; cursor:pointer; width:100%; margin-bottom:15px; display:none; font-weight: 600; color: #334155; transition: 0.2s; }
+        #backBtn:hover { background: #e2e8f0; color: #0f172a; }
+        
+        .hidden { display: none !important; }
+        .leaflet-popup-content-wrapper { border-radius: 8px; font-family: 'Inter'; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h1>YMK Catering</h1>
+        <p>Google Sheets Entegreli Sistem 🟢</p>
+
+        <button id="backBtn" onclick="turkiyeModunaDon()">← Haritaya Dön</button>
+
+        <div id="city-controls" class="hidden">
+            <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:5px;">FİRMA SEÇİMİ</label>
+            <select id="firmaSecimi">
+                <option value="genel">🌍 Genel Görünüm</option>
+                <!-- Firmalar Google Sheet'ten otomatik dolacak -->
+            </select>
+
+            <div class="legend-box">
+                <span class="legend-title">Min. Sipariş Limitleri</span>
+                <div class="legend-item"><div class="dot" style="background:#22c55e"></div> 0 - 15 Kişi (Çok Esnek)</div>
+                <div class="legend-item"><div class="dot" style="background:#f59e0b"></div> 16 - 50 Kişi (Standart)</div>
+                <div class="legend-item"><div class="dot" style="background:#ef4444"></div> 51+ Kişi (Toplu Sipariş)</div>
+                <div class="legend-item"><div class="dot" style="background:#e2e8f0"></div> Hizmet Yok</div>
+            </div>
+            
+            <div style="margin-top: 15px; font-size: 11px; color: #94a3b8; line-height: 1.4;">
+                *Veriler Google E-Tablo üzerinden anlık çekilmektedir. Değişiklikler sayfayı yenileyince yansır.
+            </div>
+        </div>
+        
+        <div id="turkiye-info">
+            <div class="legend-box">
+                <span class="legend-title">Sistem Durumu</span>
+                <div style="font-size: 13px; color: #334155;">
+                    Veritabanı Bağlantısı: <strong>Aktif</strong><br>
+                    Kaynak: <strong>Google Sheets</strong>
+                </div>
+            </div>
+            <br>
+            <span style="font-size:13px; color:#64748b;">Detaylarını görmek istediğiniz şehre tıklayın.</span>
+        </div>
+    </div>
+
+    <div id="map-container">
+        <div id="loading">Veriler Çekiliyor...</div>
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // ============================================================
+        // SENİN GOOGLE SHEET LINKIN BURADA:
+        const GOOGLE_SHEET_LINKI = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRJk198uV3N1W3fYMRVyAOFZtFZ-YW2GL6jUKJvJPyr5Y6LuRCSx45sLnzbYh5g3VNgbQZvjHOEp8sO/pub?output=csv';
+        // ============================================================
+
+        var map = L.map('map', { zoomControl: false }).setView([39.0, 35.5], 6);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: 'YMK Catering' }).addTo(map);
+
+        let activeLayer = L.layerGroup().addTo(map);
+        let tumVeriler = []; 
+        let mevcutFirmalar = new Set();
+        let istanbulGeoJSON = null; // Veriyi bir kere indirip saklayalım
+
+        const sehirler = [
+            { name: "Istanbul", coords: [[41.28, 28.05], [41.35, 28.25], [41.25, 28.95], [41.22, 29.15], [41.15, 29.30], [41.18, 29.45], [41.15, 29.65], [41.05, 29.55], [40.85, 29.30], [40.80, 29.25], [40.85, 29.10], [40.95, 28.90], [40.96, 28.60], [40.98, 28.50], [41.05, 28.20], [41.28, 28.05]] }
+        ];
+
+        // 1. VERİLERİ ÇEKME
+        function verileriYukle() {
+            Papa.parse(GOOGLE_SHEET_LINKI, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    tumVeriler = results.data;
+                    console.log("Excel Verileri:", tumVeriler);
+                    
+                    tumVeriler.forEach(satir => {
+                        if(satir.Firma) mevcutFirmalar.add(satir.Firma);
+                    });
+                    
+                    const select = document.getElementById('firmaSecimi');
+                    select.innerHTML = '<option value="genel">🌍 Genel Görünüm</option>';
+                    mevcutFirmalar.forEach(firma => {
+                        let opt = document.createElement('option');
+                        opt.value = firma;
+                        opt.innerText = firma;
+                        select.appendChild(opt);
+                    });
+
+                    document.getElementById('loading').style.display = 'none';
+                    turkiyeModunuBaslat();
+                },
+                error: function(err) {
+                    alert("Google Sheets'e bağlanamadı! İnternetini kontrol et.");
+                    document.getElementById('loading').style.display = 'none';
+                }
+            });
+        }
+
+        // 2. TÜRKİYE MODU
+        function turkiyeModunuBaslat() {
+            activeLayer.clearLayers();
+            document.getElementById('city-controls').classList.add('hidden');
+            document.getElementById('backBtn').style.display = 'none';
+            document.getElementById('turkiye-info').classList.remove('hidden');
+            map.setView([39.0, 35.5], 6);
+
+            sehirler.forEach(city => {
+                L.polygon(city.coords, { color: '#3b82f6', weight: 2, fillOpacity: 0.4 }).addTo(activeLayer)
+                .bindTooltip(`<b>${city.name}</b><br>Tıkla`, { direction:'center' })
+                .on('click', () => {
+                    if(city.name === 'Istanbul') istanbuluYukle();
+                    else alert("Şu an sadece İstanbul verisi aktiftir.");
+                })
+                .on('mouseover', function() { this.setStyle({fillOpacity: 0.7}); })
+                .on('mouseout', function() { this.setStyle({fillOpacity: 0.4}); });
+            });
+        }
+
+        // 3. İSTANBUL MODU
+        function istanbuluYukle() {
+            activeLayer.clearLayers();
+            document.getElementById('city-controls').classList.remove('hidden');
+            document.getElementById('backBtn').style.display = 'block';
+            document.getElementById('turkiye-info').classList.add('hidden');
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading').innerText = "Harita Oluşturuluyor...";
+
+            if (istanbulGeoJSON) {
+                cizimYap(istanbulGeoJSON);
+                document.getElementById('loading').style.display = 'none';
+            } else {
+                fetch('https://raw.githubusercontent.com/ozanyerli/istanbul-districts-geojson/main/istanbul-districts.json')
+                .then(res => res.json())
+                .then(data => {
+                    istanbulGeoJSON = data;
+                    document.getElementById('loading').style.display = 'none';
+                    cizimYap(data);
+                });
+            }
+        }
+
+        // 4. ANALİZ VE ÇİZİM
+        function getBolgeDurumu(ilceAdi) {
+            const filtre = document.getElementById('firmaSecimi').value;
+            let firmalar = [];
+
+            tumVeriler.forEach(satir => {
+                // Şehir ve İlçe kontrolü (Türkçe karakter duyarsız)
+                if (temizle(satir.Sehir) === 'istanbul' && temizle(satir.Ilce) === temizle(ilceAdi)) {
+                    if (filtre === 'genel' || filtre === satir.Firma) {
+                        if (satir.Limit) {
+                            firmalar.push({ isim: satir.Firma, limit: parseInt(satir.Limit) });
+                        }
+                    }
+                }
+            });
+
+            firmalar.sort((a,b) => a.limit - b.limit);
+            return firmalar;
+        }
+
+        function cizimYap(geoJsonData) {
+            activeLayer.clearLayers();
+            
+            L.geoJson(geoJsonData, {
+                style: function(feature) {
+                    const ilce = feature.properties.name || feature.properties.IlceAdi;
+                    const firmalar = getBolgeDurumu(ilce);
+                    
+                    if (firmalar.length === 0) return { fillColor: '#e2e8f0', color:'white', weight:1, fillOpacity:0.5 };
+
+                    const enIyisi = firmalar[0].limit;
+                    let renk = '#ef4444'; 
+                    if(enIyisi <= 15) renk = '#22c55e';
+                    else if(enIyisi <= 50) renk = '#f59e0b';
+
+                    return { fillColor: renk, color:'white', weight:1, fillOpacity:0.7 };
+                },
+                onEachFeature: function(feature, layer) {
+                    const ilce = feature.properties.name || feature.properties.IlceAdi;
+                    const firmalar = getBolgeDurumu(ilce);
+                    
+                    let html = `<div style="font-family:Inter; min-width:180px;">
+                        <strong style="display:block; border-bottom:1px solid #eee; padding-bottom:5px; margin-bottom:5px;">${ilce}</strong>`;
+                    
+                    if(firmalar.length > 0) {
+                        firmalar.forEach(f => {
+                            // Renkli etiketler
+                            let bg = f.limit <= 15 ? '#dcfce7' : (f.limit <= 50 ? '#fef3c7' : '#fee2e2');
+                            let color = f.limit <= 15 ? '#166534' : (f.limit <= 50 ? '#92400e' : '#991b1b');
+                            
+                            html += `<div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+                                <span>${f.isim}</span>
+                                <span style="background:${bg}; color:${color}; padding:2px 6px; border-radius:4px; font-weight:bold;">Min ${f.limit}</span>
+                            </div>`;
+                        });
+                    } else {
+                        html += "<span style='color:#94a3b8; font-size:12px;'>Hizmet Yok</span>";
+                    }
+                    html += "</div>";
+                    
+                    layer.bindPopup(html);
+                    layer.on('mouseover', function(e) { e.target.setStyle({weight:3, color:'#333'}); });
+                    layer.on('mouseout', function(e) { layer.resetStyle(e.target); });
+                }
+            }).addTo(activeLayer);
+        }
+
+        function temizle(txt) {
+            if(!txt) return "";
+            return txt.toLocaleLowerCase('tr-TR').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c').trim();
+        }
+
+        document.getElementById('firmaSecimi').addEventListener('change', () => {
+            if(istanbulGeoJSON) cizimYap(istanbulGeoJSON);
+        });
+        window.turkiyeModunaDon = turkiyeModunuBaslat;
+        
+        verileriYukle();
+
+    </script>
+</body>
+</html>
