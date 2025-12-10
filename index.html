@@ -2,13 +2,27 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>YMK Catering - Operasyonel Yönetim</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <title>YMK Catering - Veri Yönetim Paneli</title>
+    <!-- HARİTA KÜTÜPHANESİNİ SİLDİK, ARTIK SADECE VERİ YÖNETİMİ -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     
     <style>
-        /* ... CSS Kodları ... */
+        body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; height: 100vh; }
+        #sidebar { width: 380px; background: #fff; border-right: 1px solid #e2e8f0; padding: 25px; display: flex; flex-direction: column; z-index: 20; box-shadow: 4px 0 20px rgba(0,0,0,0.05); }
+        
+        #map-container { flex-grow: 1; position: relative; background: #e2e8f0; /* Harita yerine gri alan */ }
+        #map-placeholder { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            text-align: center; color: #64748b; font-size: 14px; 
+        }
+
+        /* ... Diğer CSS kodları ... */
+        h1 { font-size: 20px; color: #0f172a; margin: 0; font-weight: 800; }
+        .subtitle { font-size: 12px; color: #64748b; margin-bottom: 20px; display:block; }
+        #sehir-detay-kutusu { background: #f8fafc; border-radius: 8px; padding: 15px; border: 1px solid #e2e8f0; margin-top: 15px; max-height: 400px; overflow-y: auto; }
+        .min-pax { font-weight: bold; color: #10b981; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -16,24 +30,22 @@
     <div id="sidebar">
         <div class="brand">
             <h1>YMK Catering</h1>
-            <span class="subtitle">En Stabil Versiyon 🟢</span>
+            <span class="subtitle">Veri Yönetim Paneli (Haritasız) 🟢</span>
         </div>
 
-        <button id="backBtn" onclick="turkiyeModunaDon()" class="hidden">← Türkiye Haritasına Dön</button>
+        <button id="backBtn" onclick="turkiyeModunaDon()" class="hidden">← Türkiye Haritası Verilerine Dön</button>
 
+        <!-- ŞEHİR DETAY VEYA İSTANBUL HARİTASI KONTROLLERİ -->
         <div id="city-controls" class="hidden">
             <h2 id="aktif-sehir-baslik" style="font-size:16px; margin:0 0 10px 0; color:#0f172a;">Şehir Detayı</h2>
-            <div id="filtre-harita-alani" class="hidden">
-                <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:5px;">FİRMA SEÇİMİ (Harita)</label>
-                <select id="firmaSecimi"><option value="genel">🌍 Genel Görünüm</option></select>
-                <!-- Lejant alanı buraya gelecek (CSS ile) -->
-            </div>
+            
             <div id="sehir-detay-kutusu">
                 <span class="legend-title" style="margin-bottom:10px;">BÖLGESEL HİZMET KURALLARI</span>
                 <span id="detay-icerik">Bu şehirdeki ilçe bazlı minimum sipariş kuralları buraya gelecek.</span>
             </div>
         </div>
         
+        <!-- TÜRKİYE MODU -->
         <div id="turkiye-info">
             <div class="legend-box">
                 <span class="legend-title">SİSTEM DURUMU</span>
@@ -49,32 +61,19 @@
         </div>
     </div>
 
+    <!-- HARİTA YERİNE GRİ KUTU KOYDUK -->
     <div id="map-container">
-        <div id="loading">
-            <div id="loading-text">Sistem Başlatılıyor...</div>
+        <div id="map-placeholder">
+            <h1>HARİTA YÜKLEME KİTLERİ SİLİNDİ</h1>
+            <p>Bu alan, teknik sorunlar nedeniyle haritasız olarak ayarlandı.<br>
+            Sol menüden şehire tıklayarak veri panelini kullanabilirsiniz.</p>
         </div>
-        <div id="map"></div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-
     <script>
-        // --- KOD İÇİ SABİT VERİ ---
         const GOOGLE_SHEET_LINKI = 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv';
-        const ISTANBUL_ILCE_DOSYASI = './istanbul.json'; // İstanbul'un ilçe haritası
 
-        // KODUN İÇİNE GÖMÜLÜ TÜRKİYE HARİTASI (ASLA HATA VERMEZ)
-        const TR_GIRIS_HARITASI = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"Istanbul"},"geometry":{"type":"Polygon","coordinates":[[[28.0, 41.0], [29.5, 41.0], [29.5, 41.6], [28.0, 41.6], [28.0, 41.0]]]}},{"type":"Feature","properties":{"name":"Ankara"},"geometry":{"type":"Polygon","coordinates":[[[32.0, 39.0], [33.5, 39.0], [33.5, 40.5], [32.0, 40.5], [32.0, 39.0]]]}},{"type":"Feature","properties":{"name":"Izmir"},"geometry":{"type":"Polygon","coordinates":[[[26.5, 38.0], [27.5, 38.0], [27.5, 39.2], [26.5, 39.2], [26.5, 38.0]]]}},{"type":"Feature","properties":{"name":"Bursa"},"geometry":{"type":"Polygon","coordinates":[[[28.5, 40.0], [29.8, 40.0], [29.8, 40.5], [28.5, 40.5], [28.5, 40.0]]]}},{"type":"Feature","properties":{"name":"Antalya"},"geometry":{"type":"Polygon","coordinates":[[[30.0, 36.5], [32.5, 36.5], [32.5, 37.5], [30.0, 37.5], [30.0, 36.5]]]}},{"type":"Feature","properties":{"name":"Adana"},"geometry":{"type":"Polygon","coordinates":[[[35.0, 36.5], [36.0, 36.5], [36.0, 37.5], [35.0, 37.5], [35.0, 36.5]]]}}]};
-
-
-        var map = L.map('map', { zoomControl: false }).setView([39.0, 35.5], 6);
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: 'YMK Catering' }).addTo(map);
-
-        let activeLayer = L.layerGroup().addTo(map);
         let tumVeriler = []; 
-        let mevcutFirmalar = new Set();
         let aktifSehirlerSet = new Set(); 
 
         function temizle(txt) {
@@ -82,100 +81,35 @@
             return txt.toLocaleLowerCase('tr-TR').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ş/g,'s').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ç/g,'c').trim();
         }
 
-        // 1. EXCEL VERİSİ
+        // 1. EXCEL VERİSİNİ ÇEK
         function verileriYukle() {
-            document.getElementById('loading-text').innerText = "Excel verileri çekiliyor...";
             Papa.parse(GOOGLE_SHEET_LINKI, {
                 download: true, header: true, skipEmptyLines: true,
                 complete: function(results) {
                     tumVeriler = results.data;
-                    document.getElementById('loading-text').innerText = "Veri okundu. Harita çiziliyor...";
                     tumVeriler.forEach(satir => {
-                        if(satir.Firma) mevcutFirmalar.add(satir.Firma);
                         if(satir.Sehir) aktifSehirlerSet.add(temizle(satir.Sehir));
                     });
                     
-                    const select = document.getElementById('firmaSecimi');
-                    select.innerHTML = '<option value="genel">🌍 Genel Görünüm</option>';
-                    mevcutFirmalar.forEach(firma => {
-                        let opt = document.createElement('option');
-                        opt.value = firma;
-                        opt.innerText = firma;
-                        select.appendChild(opt);
-                    });
-
                     listeyiGuncelle();
-                    turkiyePoligonlariniYukle(TR_GIRIS_HARITASI); // KOD İÇİNDEN ÇİZ
                 },
-                error: function() { 
-                    alert("Excel verisi çekilirken bir hata oldu."); 
-                    document.getElementById('loading').style.display = 'none';
-                }
+                error: function() { alert("Excel bağlantısı bozuk."); }
             });
         }
 
-        // 2. TÜRKİYE HARİTASI (KOD İÇİNDEN - ASLA ÇÖKMEZ)
-        function turkiyePoligonlariniYukle(geoData) {
-            document.getElementById('loading').style.display = 'none'; // BURASI DÜZELDİ: Hata veren kısmı sildim
-            turkiyeModunuCiz(geoData);
-        }
-
-        function turkiyeModunuCiz(geoData) {
-            activeLayer.clearLayers();
-            L.geoJson(geoData, {
-                style: function(feature) {
-                    const sehirAdi = temizle(feature.properties.name);
-                    if (aktifSehirlerSet.has(sehirAdi)) {
-                        return { fillColor: '#3b82f6', color: 'white', weight: 1, fillOpacity: 0.6 };
-                    } else {
-                        return { fillColor: '#e2e8f0', color: 'white', weight: 1, fillOpacity: 0.4 };
-                    }
-                },
-                onEachFeature: function(feature, layer) {
-                    const sehirAdi = feature.properties.name;
-                    layer.bindTooltip(`<b>${sehirAdi}</b>`, { direction: 'center' });
-                    layer.on('click', () => detaylariAc(sehirAdi));
-                    layer.on('mouseover', function(e) { e.target.setStyle({ weight: 2, color: '#333', fillOpacity: 0.8 }); });
-                    layer.on('mouseout', function(e) { activeLayer.resetStyle(e.target); });
-                }
-            }).addTo(activeLayer);
-            
-            document.getElementById('city-controls').classList.add('hidden');
-            document.getElementById('backBtn').classList.add('hidden');
-            document.getElementById('turkiye-info').classList.remove('hidden');
-            map.setView([39.0, 35.5], 6);
-        }
-
-        // 3. DETAY AÇMA FONKSİYONU (HARİTA VEYA LİSTE)
+        // 2. DETAY AÇMA FONKSİYONU (SADECE LİSTE AÇAR)
         function detaylariAc(sehirAdi) {
             const temizAd = temizle(sehirAdi);
             document.getElementById('turkiye-info').classList.add('hidden');
             document.getElementById('city-controls').classList.remove('hidden');
             document.getElementById('backBtn').classList.remove('hidden');
-            document.getElementById('aktif-sehir-baslik').innerText = sehirAdi;
+            document.getElementById('aktif-sehir-baslik').innerText = sehirAdi + " - Min. Sipariş Analizi";
 
-            // İSTANBUL İSE HARİTA MODU
-            if (temizAd === 'istanbul') {
-                document.getElementById('filtre-harita-alani').classList.remove('hidden');
-                document.getElementById('sehir-detay-kutusu').classList.add('hidden');
-                document.getElementById('loading').style.display = 'block';
-                
-                fetch(ISTANBUL_ILCE_DOSYASI)
-                    .then(res => res.json()).then(data => {
-                        document.getElementById('loading').style.display = 'none';
-                        ilceHaritasiniCiz(data, temizAd);
-                    }).catch(err => { alert(`İstanbul ilçe haritası yüklenemedi. 'istanbul.json' dosyası eksik.`); turkiyeModunaDon(); });
-            } 
-            // DİĞER ŞEHİR İSE LİSTE MODU
-            else {
-                document.getElementById('filtre-harita-alani').classList.add('hidden');
-                document.getElementById('sehir-detay-kutusu').classList.remove('hidden');
-                ilceHaritasiniCiz(null, temizAd); // Haritayı temizle
-                listeyiDoldur(temizAd); // Listeyi doldur
-            }
+            // Listeyi doldur
+            listeyiDoldur(temizAd); 
         }
 
-        // 4. LİSTE DOLDURMA (Ankara/İzmir vb. için)
+        // 3. LİSTE DOLDURMA (Ankara/İzmir vb. için)
         function listeyiDoldur(sehirKod) {
             const detayIcerik = document.getElementById('detay-icerik');
             detayIcerik.innerHTML = '';
@@ -201,20 +135,7 @@
             }
         }
 
-        // 5. HARİTA ÇİZİMİ (Sadece İstanbul İçin Çalışır)
-        function ilceHaritasiniCiz(geoData, aktifSehirKod) {
-            if (aktifSehirKod !== 'istanbul') {
-                activeLayer.clearLayers();
-                return;
-            }
-
-            activeLayer.clearLayers();
-            const tempLayer = L.geoJson(geoData);
-            map.fitBounds(tempLayer.getBounds());
-
-            // ... (Boyama ve Popup Mantığı)
-        }
-        
+        // 4. LİSTEYİ GÜNCELLE
         function listeyiGuncelle() {
             const listeDiv = document.getElementById('aktif-sehirler-listesi');
             document.getElementById('toplam-sehir-sayisi').innerText = `📊 ${aktifSehirlerSet.size} Şehirde Veri Var`;
@@ -229,10 +150,15 @@
             });
         }
 
-        function turkiyeModunaDon() { turkiyePoligonlariniYukle(TR_GIRIS_HARITASI); }
+        // 5. TÜRKİYE MODUNA DÖN (TEMİZLEME)
+        window.turkiyeModunaDon = function() { 
+            document.getElementById('city-controls').classList.add('hidden');
+            document.getElementById('backBtn').classList.add('hidden');
+            document.getElementById('turkiye-info').classList.remove('hidden');
+        }
 
+        // BAŞLANGIÇ
         verileriYukle();
-
     </script>
 </body>
-</html>```
+</html>
