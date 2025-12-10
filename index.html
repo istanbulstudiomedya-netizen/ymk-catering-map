@@ -3,165 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YMK Catering - Operasyon Paneli</title>
+    <title>YMK Catering - İnteraktif Harita</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #f8fafc; display: flex; height: 100vh; overflow: hidden; }
-        #sidebar { width: 380px; background: white; border-right: 1px solid #e2e8f0; padding: 24px; overflow-y: auto; box-shadow: 2px 0 10px rgba(0,0,0,0.05); }
-        .brand h1 { font-size: 24px; color: #0f172a; font-weight: 700; }
-        .subtitle { font-size: 14px; color: #22c55e; font-weight: 600; }
-        .hidden { display: none !important; }
-        #backBtn { margin-bottom: 20px; padding: 10px 16px; background: #f1f5f9; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
-        .legend-box { background: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 20px; }
-        .legend-title { font-weight: 700; color: #0f172a; font-size: 14px; display: block; margin-bottom: 8px; }
-        .sehir-listesi { margin-top: 12px; }
-        .sehir-item { padding: 12px; background: #f8fafc; margin-bottom: 8px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 500; transition: all 0.2s; }
-        .sehir-item:hover { background: #e0f2fe; transform: translateX(4px); }
-        #map-container { flex: 1; position: relative; background: #e0f2fe; }
-        #map-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; background: linear-gradient(135deg, #cffafe, #dbeafe); z-index: 10; }
-        #map-placeholder h1 { font-size: 36px; color: #1e40af; margin-bottom: 16px; }
-        #map-placeholder p { font-size: 18px; color: #475569; text-align: center; max-width: 500px; }
-        .detay-firma-baslik { font-weight: 700; color: #1e40af; margin: 16px 0 8px 0; font-size: 15px; }
-        .detay-kural { padding: 8px 12px; background: #f0f9ff; border-radius: 6px; margin-bottom: 6px; display: flex; justify-content: space-between; font-size: 14px; }
-        .min-pax { color: #dc2626; font-weight: 600; }
+        body { margin:0; font-family:'Inter',sans-serif; display:flex; height:100vh; overflow:hidden; }
+        #sidebar { width:380px; background:#fff; border-right:1px solid #e2e8f0; padding:24px; overflow-y:auto; }
+        #map { flex:1; }
+        .sehir-item { padding:14px; background:#f8fafc; margin:8px 0; border-radius:8px; cursor:pointer; font-weight:600; transition:.2s; }
+        .sehir-item:hover { background:#dbeafe; transform:translateX(5px); }
+        .hidden { display:none; }
+        .back-btn { padding:10px 16px; background:#1e40af; color:white; border:none; border-radius:8px; cursor:pointer; margin-bottom:20px; }
+        .min-pax { font-weight:700; }
     </style>
 </head>
 <body>
 
-    <div id="sidebar">
-        <div class="brand">
-            <h1>YMK Catering</h1>
-            <span class="subtitle">Operasyon Paneli (Stabil Mod) 100%</span>
-        </div>
+<div id="sidebar">
+    <h1>YMK Catering</h1>
+    <p style="color:#22c55e; font-weight:600;">İnteraktif Harita Aktif</p>
+    <button class="back-btn hidden" id="backBtn">← Türkiye Geneli</button>
+    
+    <div id="sehir-listesi"></div>
+</div>
 
-        <button id="backBtn" onclick="turkiyeModunaDon()" class="hidden">← Türkiye Geneli</button>
+<div id="map"></div>
 
-        <div id="city-controls" class="hidden">
-            <h2 id="aktif-sehir-baslik" style="font-size:18px; margin:20px 0 10px;">Şehir Detayı</h2>
-            <div id="sehir-detay-kutusu">
-                <span class="legend-title">BÖLGESEL MİNİMUM SİPARİŞ LİMİTLERİ</span>
-                <div id="detay-icerik" style="margin-top:10px;">Yükleniyor...</div>
-            </div>
-        </div>
-        
-        <div id="turkiye-info">
-            <div class="legend-box">
-                <span class="legend-title">SİSTEM DURUMU</span>
-                <div style="font-size: 13px; color: #334155;">
-                    <div style="margin-bottom:5px">Excel: <strong style="color:#22c55e">Bağlı</strong></div>
-                    <div id="toplam-sehir-sayisi">Veriler yükleniyor...</div>
-                </div>
-            </div>
-            <div style="margin-top:20px;">
-                <span style="font-size:13px; font-weight:bold; color:#0f172a;">AKTİF ŞEHİRLER (${new Date().getFullYear()}):</span>
-                <div id="aktif-sehirler-listesi" class="sehir-listesi"></div>
-            </div>
-        </div>
-    </div>
+<script>
+    const SHEET = 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv';
+    let veri = [], map, currentLayer;
 
-    <div id="map-container">
-        <div id="map-placeholder">
-            <h1>HARİTA KİTLERİ DEVRE DIŞI</h1>
-            <p>İnternet kısıtlamaları ve performans sebebiyle harita geçici olarak kapatılmıştır.<br>
-            Tüm operasyonel veriler sol panelde gerçek zamanlı olarak görüntülenebilir.</p>
-        </div>
-        <div id="map" style="display:none;"></div>
-    </div>
+    const map = L.map('map').setView([39.0, 35.5], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
 
-    <script>
-        const GOOGLE_SHEET_LINKI = 'https://docs.google.com/spreadsheets/d/14v85yx696A2-5L3WWc5LTnBCwc6esA68Roh8Wo7uleI/gviz/tq?tqx=out:csv';
-        
-        let tumVeriler = [];
-        let aktifSehirlerSet = new Set();
+    function temizle(str) {
+        return str?.toLowerCase()
+            .replace(/[ğ]/gi,'g').replace(/[ü]/gi,'u').replace(/[ş]/gi,'s')
+            .replace(/[ı]/gi,'i').replace(/[ö]/gi,'o').replace(/[ç]/gi,'c')
+            .replace(/[^a-z0-9]/g,'');
+    }
 
-        function temizle(txt) {
-            if (!txt) return "";
-            return txt.toString().toLowerCase()
-                .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
-                .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-                .replace(/[^a-z0-9]/g, '');
-        }
+    // Renk hesaplama
+    function renkBul(limit) {
+        if (limit <= 15) return "#22c55e";
+        if (limit <= 50) return "#f59e0b";
+        return "#ef4444";
+    }
 
-        function verileriYukle() {
-            Papa.parse(GOOGLE_SHEET_LINKI, {
-                download: true,
-                header: true,
-                complete: function(results) {
-                    tumVeriler = results.data.filter(row => row.Sehir && row.Ilce && row.Firma && row.Limit);
-                    tumVeriler.forEach(row => {
-                        aktifSehirlerSet.add(temizle(row.Sehir));
-                    });
-                    listeyiGuncelle();
+    // Şehir tıklandığında haritayı yükle
+    async function sehriAc(sehirAdi) {
+        const kod = temizle(sehirAdi);
+        document.querySelectorAll('.sehir-item').forEach(el => el.classList.remove('active'));
+        event.target.classList.add('active');
+
+        // Önceki haritayı temizle
+        if (currentLayer) map.removeLayer(currentLayer);
+
+        // Sadece o şehre ait GeoJSON’u yükle
+        const dosya = `${kod}.geojson`; // istanbul.geojson, ankara.geojson vs.
+        try {
+            const res = await fetch(dosya);
+            if (!res.ok) throw new Error();
+            const geo = await res.json();
+
+            currentLayer = L.geoJSON(geo, {
+                style: feature => {
+                    const ilce = feature.properties.name || feature.properties.ilce;
+                    // O ilçedeki en düşük limit
+                    const limitler = veri
+                        .filter(r => temizle(r.Sehir) === kod && temizle(r.Ilce) === temizle(ilce))
+                        .map(r => +r.Limit);
+                    const enDusuk = limitler.length ? Math.min(...limitler) : null;
+                    return {
+                        fillColor: enDusuk ? renkBul(enDusuk) : "#94a3b8",
+                        weight: 2,
+                        opacity: 1,
+                        color: 'white',
+                        fillOpacity: 0.7
+                    };
                 },
-                error: function(err) {
-                    document.getElementById('toplam-sehir-sayisi').innerHTML = 'Excel bağlantısı koptu!';
-                }
-            });
-        }
-
-        function detaylariAc(sehirAdi) {
-            const temizAd = temizle(sehirAdi);
-            document.getElementById('turkiye-info').classList.add('hidden');
-            document.getElementById('city-controls').classList.remove('hidden');
-            document.getElementById('backBtn').classList.remove('hidden');
-            document.getElementById('aktif-sehir-baslik').innerText = sehirAdi.toUpperCase();
-
-            listeyiDoldur(temizAd);
-        }
-
-        function listeyiDoldur(sehirKod) {
-            const detayIcerik = document.getElementById('detay-icerik');
-            detayIcerik.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8;">Yükleniyor...</div>';
-            
-            let firmalar = {};
-            tumVeriler.forEach(satir => {
-                if(temizle(satir.Sehir) === sehirKod) {
-                    const key = satir.Firma.trim();
-                    if (!firmalar[key]) firmalar[key] = [];
-                    firmalar[key].push({Ilce: satir.Ilce.trim(), Limit: parseInt(satir.Limit) || 0});
-                }
-            });
-
-            let html = '';
-            Object.keys(firmalar).sort().forEach(firma => {
-                html += `<div class="detay-firma-baslik">${firma}</div>`;
-                firmalar[firma]
-                    .sort((a,b) => a.Ilce.localeCompare(b.Ilce))
-                    .forEach(d => {
-                        const renk = d.Limit <= 15 ? '#22c55e' : d.Limit <= 50 ? '#f59e0b' : '#ef4444';
-                        html += `<div class="detay-kural"><span>${d.Ilce}</span> <span class="min-pax" style="color:${renk}">Min ${d.Limit} kişi</span></div>`;
+                onEachFeature: (feature, layer) => {
+                    const ilce = feature.properties.name || feature.properties.ilce;
+                    const firmalar = veri.filter(r => 
+                        temizle(r.Sehir) === kod && temizle(r.Ilce) === temizle(ilce));
+                    let popup = `<b>${ilce}</b><br>`;
+                    firmalar.forEach(f => {
+                        popup += `${f.Firma}: <span style="color:${renkBul(f.Limit)}"><b>Min ${f.Limit} kişi</b></span><br>`;
                     });
+                    layer.bindPopup(popup);
+                }
+            }).addTo(map);
+
+            map.fitBounds(currentLayer.getBounds());
+            document.getElementById('backBtn').classList.remove('hidden');
+        } catch {
+            alert(`${sehirAdi} için harita dosyası henüz eklenmedi. Yakında eklenecek!`);
+        }
+    }
+
+    // Veri yükle ve şehir listesini oluştur
+    Papa.parse(SHEET, {
+        download: true,
+        header: true,
+        complete: function(res) {
+            veri = res.data.filter(r => r.Sehir && r.Ilce && r.Firma && r.Limit);
+            const sehirler = [...new Set(veri.map(r => r.Sehir))].sort();
+            const liste = document.getElementById('sehir-listesi');
+            sehirler.forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'sehir-item';
+                div.textContent = s.toUpperCase();
+                div.onclick = () => sehriAc(s);
+                liste.appendChild(div);
             });
-
-            detayIcerik.innerHTML = html || '<div style="color:#94a3b8; text-align:center; padding:30px;">Bu şehirde kayıtlı hizmet yok.</div>';
         }
+    });
 
-        function listeyiGuncelle() {
-            document.getElementById('toplam-sehir-sayisi').innerText = `${aktifSehirlerSet.size} şehirde aktif operasyon`;
-            const listeDiv = document.getElementById('aktif-sehirler-listesi');
-            listeDiv.innerHTML = "";
-            Array.from(aktifSehirlerSet).sort().forEach(sehir => {
-                const gorunen = sehir.charAt(0).toUpperCase() + sehir.slice(1);
-                const item = document.createElement('div');
-                item.className = 'sehir-item';
-                item.innerHTML = `<span>${gorunen}</span><span>→</span>`;
-                item.onclick = () => detaylariAc(sehir);
-                listeDiv.appendChild(item);
-            });
-        }
-
-        window.turkiyeModunaDon = function() {
-            document.getElementById('city-controls').classList.add('hidden');
-            document.getElementById('backBtn').classList.add('hidden');
-            document.getElementById('turkiye-info').classList.remove('hidden');
-        }
-
-        // Başlat
-        verileriYukle();
-    </script>
+    document.getElementById('backBtn').onclick = () => {
+        if (currentLayer) map.removeLayer(currentLayer);
+        map.setView([39.0, 35.5], 6);
+        document.getElementById('backBtn').classList.add('hidden');
+    };
+</script>
 </body>
 </html>
